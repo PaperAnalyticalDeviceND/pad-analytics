@@ -540,3 +540,4 @@ def read_img(image_url):
   # Open the image using PIL directly from the HTTP response
   img = Image.open(BytesIO(response.content))
   return img
+
