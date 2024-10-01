@@ -12,6 +12,8 @@ import regionRoutine
 import cv2 as cv
 import csv
 
+
+
 #### PLS version of concentration
 class pls:
     def __init__(self, coefficients_file):
@@ -40,8 +42,12 @@ class pls:
 
             # drug?
             # continue if no coefficients
+            
             if drug.lower() not in self.coeff:
+                print(drug.lower(), "not in coefficients file")
                 return 0.
+            
+            print(drug.lower(), "In coefficients file")
 
             drug_coeff = self.coeff[drug.lower()] #coeff['amoxicillin'] #
 
@@ -62,13 +68,26 @@ class pls:
             print("Error",e, "pls analyzing image", in_file, "with", drug)
             return -1.
 
-#### NN version of concentration
+#### NN version of concentrations
 class pad_neural_network:
     def __init__(self, model_file):
         try:
             # Load the TFLite model and allocate tensors.
             self.interpreter =  tf.lite.Interpreter(model_path=model_file)
             self.interpreter.allocate_tensors()
+            
+            # Load the GPU delegate
+            # Attempt to load the TensorFlow Lite GPU delegate
+            # try:
+            #     gpu_delegate = tf.lite.experimental.load_delegate('libtensorflowlite_gpu_delegate.so')
+            #     self.interpreter = tf.lite.Interpreter(model_path=model_file, experimental_delegates=[gpu_delegate])
+            #     print("Successfully loaded GPU delegate.")
+            # except ValueError:
+            #     print("Failed to load GPU delegate, falling back to CPU.")
+            #     self.interpreter =  tf.lite.Interpreter(model_path=model_file)
+
+            self.interpreter.allocate_tensors()
+            self.interpreter.invoke()
 
             # get sizes
             # Get input and output tensors.
