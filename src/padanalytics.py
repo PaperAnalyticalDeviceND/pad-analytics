@@ -11,6 +11,7 @@ import tensorflow as tf
 import regionRoutine
 import pad_helper
 import numpy as np
+import csv
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ImageFile.LOAD_TRUNCATED_IMAGES = True
