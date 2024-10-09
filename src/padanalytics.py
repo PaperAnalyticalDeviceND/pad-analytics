@@ -702,3 +702,51 @@ def nn_predict(image_url, model_path, labels):
   # print("Energy: ", energy.numpy())
 
   return prediction, probability, energy.numpy()
+
+
+
+
+def predict(model_id, card_id):
+
+  pad_url = 'https://pad.crc.nd.edu/'
+
+  card_info = get_card(card_id)
+
+  # download model
+  model_df = get_model(model_id)
+  model_type = model_df.type.values[0]
+  model_url = model_df.weights_url.values[0]
+  model_file = os.path.basename(model_url)
+  print(f"Model Type: {model_type}")
+  print(f"Model URL: {model_url}")
+  print(f"Model File: {model_file}")
+  if not os.path.exists(model_file):
+    if pad_helper.pad_download(model_url):
+        print(model_url, "downloaded.")
+    else:
+        print(model_url, "failed to download.")
+
+
+  # define actual label
+  actual_api = card_info.sample_name.values[0]
+  if model_type == 'pls':
+    actual_label = card_info.quantity.values[0]
+  else:
+    actual_label = card_info.sample_name.values[0]
+
+  # fix label names
+  labels = list(map(standardize_names, get_model(model_id).labels.values[0]))
+
+  # fix image url
+  image_url =  pad_url + card_info.processed_file_location.values[0]
+
+  # make prediction
+  if model_type == 'tf_lite':
+    prediction = nn_predict(image_url,  model_file, labels)
+  else:
+    temp_file = './temp.png'
+    download_file(image_url, temp_file, './')
+    pls_conc = pls(model_file)
+    prediction = pls_conc.quantity(temp_file, actual_api) 
+
+  return actual_label, prediction
