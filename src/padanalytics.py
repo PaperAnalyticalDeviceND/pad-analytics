@@ -10,6 +10,7 @@ import pandas as pd
 import regionRoutine
 import pad_helper
 import pad_analysis
+import numpy as np
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ImageFile.LOAD_TRUNCATED_IMAGES = True
