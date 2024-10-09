@@ -778,7 +778,7 @@ def show_prediction(card_id, model_id):
     model_file = os.path.basename(model_url)
 
     # prediction
-    _, prediction= predict(model_id, card_id)
+    _, prediction= predict(card_id, model_id)
     # if type of prediction is float 
     if isinstance(prediction, float):
       # get 2 decimals precision and transform o str
