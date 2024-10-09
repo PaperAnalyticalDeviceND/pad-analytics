@@ -1,4 +1,4 @@
-import requests
+import requests, os
 import urllib3
 from PIL import Image, ImageFile
 import ipywidgets as widgets
