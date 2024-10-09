@@ -11,7 +11,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 API_URL = "https://pad.crc.nd.edu/api/v2"
 
-def get_data_api(request_url, data_type=""):    
+def get_data_api(request_url, data_type=""):
     try:
         # fetch_data_from_api
         r = requests.get(url=request_url,verify=False)  # NOTE: Using verify=False due to a SSL issue, I need a valid certificate, then I will remove this parameter.
@@ -524,11 +524,11 @@ def show_cards(card_ids):
     display(widgets.VBox(card_rows))
 
 
-def get_neural_networks():
+def get_models():
     request_url = f"{API_URL}/neural-networks"
     return get_data_api(request_url, 'card issues')
 
-def get_neural_network(nn_id):
+def get_model(nn_id):
     request_url = f"{API_URL}/neural-networks/{nn_id}"
     return get_data_api(request_url, f"neural_network {nn_id}")
     
