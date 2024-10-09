@@ -706,7 +706,7 @@ def nn_predict(image_url, model_path, labels):
 
 
 
-def predict(model_id, card_id):
+def predict(card_id, model_id):
 
   pad_url = 'https://pad.crc.nd.edu/'
 
