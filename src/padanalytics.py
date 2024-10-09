@@ -646,8 +646,7 @@ def read_img(image_url):
   img = Image.open(BytesIO(response.content))
   return img
 
-def nn_predict(image_url, model_path):
-  labels = API_LABELS
+def nn_predict(image_url, model_path, labels):
 
   # Read the image from the URL
   img = read_img(image_url)
