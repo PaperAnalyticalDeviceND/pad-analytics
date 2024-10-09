@@ -100,13 +100,45 @@ def get_project_cards(project_ids = None):
         print("No data was retrieved for the provided project IDs.")
         return None
         
-def get_card(card_id):
-    request_url = f"{API_URL}/cards/{card_id}"
-    return get_data_api(request_url, f"card {card_id}")
+# def get_card(card_id):
+#     request_url = f"{API_URL}/cards/{card_id}"
+#     return get_data_api(request_url, f"card {card_id}")
 
-def get_project(project_id):
+def get_card_by_id(card_id):
+  request_url = f"{API_URL}/cards/{card_id}"
+  return get_data_api(request_url, f"card {card_id}")
+
+def get_card(card_id=None, sample_id=None):
+    if card_id:
+        # Get card by card_id
+        return get_card_by_id(card_id)
+
+    elif sample_id:
+        # Get card samples by sample_id
+        return get_card_samples(sample_id)
+    else:
+        raise ValueError("You must provide either card_id or sample_id")
+
+def get_project_by_id(project_id):
     request_url = f"{API_URL}/projects/{project_id}"
     return get_data_api(request_url, f"project {project_id}")
+
+def get_project_by_name(project_name):
+    projects = get_projects()
+    project = projects[projects['project_name'].apply(lambda x: x.lower() == project_name.lower())]
+    return project
+
+
+def get_project(id=None, name=None):
+    if id:
+        # Get project by ID
+        return get_project_by_id(id)
+    elif name:
+        # Get project by project_name
+        return get_project_by_name(name)
+    else:
+        raise ValueError("You must provide either project_id or project_name")
+
 
 
 # Function to load image from URL
@@ -118,7 +150,7 @@ def load_image_from_url(image_url):
 # Function to create a widget that shows the image and its related data
 def create_image_widget_with_info(image_url, data_df):
 
-    small_im_width = 300
+    small_im_width = 250
     full_im_width = 800
     background_color_field = "#5c6e62"
     background_color_value = "#f9f9f9"
