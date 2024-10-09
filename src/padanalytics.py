@@ -750,3 +750,70 @@ def predict(model_id, card_id):
     prediction = pls_conc.quantity(temp_file, actual_api) 
 
   return actual_label, prediction
+
+
+
+def show_prediction(card_id, model_id):
+    info = get_card(card_id)
+    
+    if info is None:
+        print(f"Failed to retrieve data for card {card_id}")
+        return
+    
+    # Data validation: check if essential fields exist in the API response
+    def safe_get(field, default="N/A"):
+        try:
+            if field in info.columns:
+                return info[field].values[0]
+            else:
+                return default
+        except (IndexError, KeyError):
+            return default
+
+    # model data
+    
+    model_df = get_model(model_id)
+    model_type = model_df.type.values[0]
+    model_url = model_df.weights_url.values[0]
+    model_file = os.path.basename(model_url)
+
+    # prediction
+    _, prediction= predict(model_id, card_id)
+    # if type of prediction is float 
+    if isinstance(prediction, float):
+      # get 2 decimals precision and transform o str
+      prediction = str(round(prediction, 2))
+
+    # Example of how to use `safe_get` for extracting fields
+    data = {
+        "ID": [card_id],
+        "Sample ID": [safe_get('sample_id')],
+        "Sample Name": [safe_get('sample_name')],
+        "Quantity": [safe_get('quantity')],
+        "Prediction": [prediction],
+        "Pred. Model File": [model_file],
+        "Pred. Model type": [model_type],
+        "Camera Type": [safe_get('camera_type_1')],
+        "Issue": [safe_get('issue.name', safe_get('issue'))],
+        "Project Name": [safe_get('project.project_name')],
+        "Project Id": [safe_get('project.id')],
+        "Notes": [safe_get('notes')],
+        "Date of Creation": [safe_get('date_of_creation')],
+        "Deleted": [safe_get('deleted', default=False)],  # If missing, default to False
+    }
+    
+    # Convert data to DataFrame
+    data_df = pd.DataFrame(data)
+    
+    # Handle missing image URL gracefully
+    try:
+        image_url = 'https://pad.crc.nd.edu/' + info['processed_file_location'].values[0]
+    except (KeyError, IndexError):
+        print(f"No valid image found for card {card_id}")
+        image_url = 'https://via.placeholder.com/300'  # Default placeholder image
+    
+    # Create the widget for the image and its info
+    image_widget_box = create_image_widget_with_info(image_url, data_df)
+
+    # Display the widget
+    display(image_widget_box)
