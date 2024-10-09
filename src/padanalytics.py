@@ -12,6 +12,7 @@ import regionRoutine
 import pad_helper
 import numpy as np
 import csv
+import cv2 as cv
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ImageFile.LOAD_TRUNCATED_IMAGES = True
