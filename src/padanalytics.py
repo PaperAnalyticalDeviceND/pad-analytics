@@ -6,6 +6,7 @@ from IPython.display import display, HTML
 from io import BytesIO
 import io
 import pandas as pd
+import tensorflow as tf
 
 import regionRoutine
 import pad_helper
