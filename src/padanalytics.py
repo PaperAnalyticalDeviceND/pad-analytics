@@ -150,7 +150,7 @@ def load_image_from_url(image_url):
 # Function to create a widget that shows the image and its related data
 def create_image_widget_with_info(image_url, data_df):
 
-    small_im_width = 250
+    small_im_width = 300
     full_im_width = 800
     background_color_field = "#5c6e62"
     background_color_value = "#f9f9f9"
