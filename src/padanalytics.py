@@ -1,13 +1,18 @@
 import requests
 import urllib3
-from PIL import Image
+from PIL import Image, ImageFile
 import ipywidgets as widgets
 from IPython.display import display, HTML
 from io import BytesIO
 import io
 import pandas as pd
 
+import regionRoutine
+import pad_helper
+import pad_analysis
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 API_URL = "https://pad.crc.nd.edu/api/v2"
 
@@ -541,3 +546,157 @@ def read_img(image_url):
   img = Image.open(BytesIO(response.content))
   return img
 
+def download_file(url, filename, images_path):
+    """Download a file from a URL and save it to a local file."""
+    try:
+        response = requests.get(url, stream=True, verify=False)
+        if response.status_code == 200:
+            path = os.path.join(images_path, filename)
+            with open(path, 'wb') as f:
+                for chunk in response.iter_content(1024):
+                    f.write(chunk)
+            # print(f"File '{filename}' successfully downloaded to '{images_path}'")
+        else:
+            # Log error if the response status code is not 200
+            print(f"Failed to download the file. URL: {url} returned status code: {response.status_code}")
+            raise Exception(f"Failed to download the file. URL: {url} returned status code: {response.status_code}")
+    except Exception as e:
+        # Log any other exceptions during the download process
+        print(f"An error occurred while downloading the file: {e}")
+        # Optionally, you can re-raise the exception if you want it to be noticed by the calling function
+        raise
+
+def convert_from_image_to_cv2(img: Image) -> np.ndarray:
+    # return np.asarray(img)
+    return cv.cvtColor(np.array(img), cv.COLOR_RGB2BGR)
+
+class pls:
+    def __init__(self, coefficients_file):
+        try:
+            # load coeffs
+            self.coeff = {}
+            with open(coefficients_file) as csvcoeffs:
+                csvcoeffreader = csv.reader(csvcoeffs)
+                #i=0
+                for row in csvcoeffreader:
+                    elmts = []
+                    for j in range(1,len(row)):
+                        elmts.append(float(row[j]))
+                    self.coeff[row[0]] = elmts
+        except Exception as e:
+            print("Error",e, "loading pls coefficients", coefficients_file)
+
+    def quantity(self, in_file, drug):
+        try:
+            # grab image
+            img = cv.imread(in_file)
+            
+            if img is None:
+                print("Converting img.. ", in_file)
+                # read image using Pillow and covert to cv2
+                img_pil = Image.open(in_file)
+                img = convert_from_image_to_cv2(img_pil)
+            
+            if img is None:
+                raise Exception(f"Failed to load the file. URL: {in_file}.") 
+
+            # pls dictionary
+            f = {}
+            f = regionRoutine.fullRoutine(img, regionRoutine.intFind.findMaxIntensitiesFiltered, f, True, 10)
+
+            # drug?
+            # continue if no coefficients
+            
+            if drug.lower() not in self.coeff:
+                print(drug.lower(), "--- NOT IN COEFFICIENTS FILE ---")
+                return -1
+            
+            
+
+            drug_coeff = self.coeff[drug.lower()] #coeff['amoxicillin'] #
+
+            # start with offst
+            pls_concentration = drug_coeff[0]
+
+            coeff_index = 1
+
+            for letter in ['A','B','C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']:
+                for region in range(10):
+                    for color_letter in ['R', 'G', 'B']:
+                        pixval = f[letter + str(region + 1) + '-' + color_letter]
+                        pls_concentration += float(pixval) * drug_coeff[coeff_index]
+                        coeff_index += 1
+                        
+            # print(drug.lower(), "--- OK ---")
+            return pls_concentration
+        
+        except Exception as e:
+            print("Error",e, "pls analyzing image", in_file, "with", drug)
+            return -1.
+        
+        
+        
+def read_img(image_url):
+  # Get the image data from the URL
+  response = requests.get(image_url)
+  response.raise_for_status()  # Ensure the request was successful
+
+  # Open the image using PIL directly from the HTTP response
+  img = Image.open(BytesIO(response.content))
+  return img
+
+def nn_predict(image_url, model_path):
+  labels = API_LABELS
+
+  # Read the image from the URL
+  img = read_img(image_url)
+
+  #crop image to get active area
+  img = img.crop((71, 359, 71+636, 359+490))
+
+  #for square images
+  size = (454, 454)
+  img = img.resize((size),Image.BICUBIC)#, Image.ANTIALIAS)
+
+  #reshape the image as numpy
+  #im = np.asarray(img).flatten().reshape(1, HEIGHT_INPUT, WIDTH_INPUT, DEPTH)
+
+  HEIGHT_INPUT, WIDTH_INPUT, DEPTH = (454, 454,3)
+
+  #reshape the image as numpy
+  im = np.asarray(img).flatten().reshape(1, HEIGHT_INPUT, WIDTH_INPUT, DEPTH).astype(np.float32)
+
+  # Load the TFLite model and allocate tensors.
+  # model_file = 'lite_models/' + arch + experiment + '_v1p0'
+
+  interpreter = tf.lite.Interpreter(model_path=model_path)
+  interpreter.allocate_tensors()
+
+  # Get input and output tensors.
+  input_details = interpreter.get_input_details()
+  output_details = interpreter.get_output_details()
+  #print("input", input_details[0])
+
+  # Test the model on random input data.
+  input_shape = input_details[0]['shape']
+  #input_data = np.array(np.random.random_sample(input_shape), dtype=np.float32)
+  interpreter.set_tensor(input_details[0]['index'], im)
+
+  # predict
+  interpreter.invoke()
+
+  # result
+  result = interpreter.get_tensor(output_details[0]['index'])  
+
+  num_label = np.argmax(result[0])
+  prediction = labels[num_label]
+  # print("Prediction: ", prediction)
+  
+  probability = tf.nn.softmax(result[0])[num_label].numpy()
+  # print("Probability: ", probability)
+
+  # energy
+  energy = tf.reduce_logsumexp(result[0], -1)
+  # print("Energy: ", energy.numpy())
+
+  return prediction, probability, energy.numpy()
