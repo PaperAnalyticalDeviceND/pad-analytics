@@ -12,7 +12,7 @@ from .fileManagement import *
 from .intensityFind import *
 from .pixelProcessing import *
 from .regionRoutine import *
-from .pls_model import *
+# from .pls_model import *  # Module is empty, commenting out
 
 __all__ = [
     "pad_analysis",
@@ -22,5 +22,5 @@ __all__ = [
     "intensityFind",
     "pixelProcessing",
     "regionRoutine",
-    "pls_model",
+    # "pls_model",  # Module is empty, commenting out
 ]
