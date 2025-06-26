@@ -1,0 +1,9 @@
+include README.md
+include LICENSE
+include requirements.txt
+include pyproject.toml
+recursive-include data *.csv *.json
+recursive-include models *.h5 *.tflite *.pkl
+recursive-include notebooks *.ipynb
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]

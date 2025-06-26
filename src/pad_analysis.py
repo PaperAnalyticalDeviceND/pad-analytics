@@ -8,7 +8,7 @@ import tensorflow as tf
 import PIL
 import urllib.request
 from zipfile import ZipFile
-import regionRoutine
+from . import regionRoutine
 import cv2 as cv
 import csv
 

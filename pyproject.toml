@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pad-ml-workflow"
+version = "0.1.0"
+description = "A complete workflow for machine learning models using data from the PAD API v2"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "PAD ML Team"},
+]
+keywords = ["machine learning", "PAD", "API", "workflow", "tensorflow", "keras"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9", 
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    "keras>=2.13.0",
+    "tensorflow>=2.13.0",
+    "pandas>=1.3.0",
+    "numpy>=1.21.0",
+    "scikit-learn>=0.24.0",
+    "matplotlib>=3.3.0",
+    "seaborn>=0.11.0",
+    "requests>=2.25.0",
+    "pillow>=8.0.0",
+    "opencv-python>=4.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+    "black>=21.0",
+    "flake8>=3.9",
+    "mypy>=0.910",
+]
+notebooks = [
+    "jupyter>=1.0.0",
+    "notebook>=6.0.0",
+    "ipykernel>=6.0.0",
+]
+
+[project.scripts]
+pad-analysis = "pad_ml_workflow.padanalytics:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/pad-ml-workflow-v2"
+Documentation = "https://pad.crc.nd.edu/docs"
+Repository = "https://github.com/yourusername/pad-ml-workflow-v2"
+Issues = "https://github.com/yourusername/pad-ml-workflow-v2/issues"
+
+[tool.setuptools]
+packages = ["pad_ml_workflow"]
+package-dir = {"pad_ml_workflow" = "src"}
+
+[tool.setuptools.package-data]
+pad_ml_workflow = ["*.csv", "*.json"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+exclude = [".git", "__pycache__", "build", "dist"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

@@ -9,8 +9,8 @@ import pandas as pd
 import tensorflow as tf
 from sklearn.metrics import mean_squared_error
 
-import regionRoutine
-import pad_helper
+from . import regionRoutine
+from . import pad_helper
 import numpy as np
 import csv
 import cv2 as cv
@@ -1047,3 +1047,30 @@ def calculate_rmse_by_api(result, actual_col='label', pred_col='prediction'):
     # Convert the Series to a DataFrame and reset the index
     rmse_df = rmse_by_class.reset_index(name='rmse')
     return rmse_df
+
+def main():
+    """Main entry point for the pad-analysis command line tool."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='PAD ML Workflow Analysis Tool')
+    parser.add_argument('--version', action='version', version='%(prog)s 0.1.0')
+    parser.add_argument('--help-commands', action='store_true', help='Show available commands')
+    
+    args = parser.parse_args()
+    
+    if args.help_commands:
+        print("PAD ML Workflow Analysis Tool")
+        print("=" * 40)
+        print("Available functions:")
+        print("- get_projects(): Get all projects")
+        print("- get_card(card_id): Get specific card")
+        print("- get_models(): Get all models")
+        print("- predict(card_id, model_id): Make prediction")
+        print("\nUse as a Python module:")
+        print("  import padanalytics")
+        print("  projects = padanalytics.get_projects()")
+    else:
+        parser.print_help()
+
+if __name__ == "__main__":
+    main()
