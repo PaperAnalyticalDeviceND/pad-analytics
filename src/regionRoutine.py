@@ -1,8 +1,8 @@
 import cv2 as cv
 import numpy as np
-import fileManagement as fm
-import intensityFind as intFind
-import pixelProcessing as px
+from . import fileManagement as fm
+from . import intensityFind as intFind
+from . import pixelProcessing as px
 import pandas as pd
 import os
 import csv
