@@ -163,3 +163,9 @@ README_*.md
 
 # Test files in root (should be in tests/ directory)
 test_*.py
+
+# Large model files (should be downloaded separately or stored externally)
+*.tflite
+*.h5
+*.pb
+*.onnx
