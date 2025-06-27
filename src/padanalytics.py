@@ -1,6 +1,8 @@
 import requests, os
 import urllib3
 import warnings
+import sys
+import contextlib
 from PIL import Image, ImageFile
 import ipywidgets as widgets
 from IPython.display import display, HTML
@@ -20,11 +22,27 @@ import cv2 as cv
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-# Suppress libpng warnings by default unless debug mode is enabled
-if not os.getenv('PAD_DEBUG', '').lower() in ('1', 'true', 'yes'):
+# Control debug output
+DEBUG_MODE = os.getenv('PAD_DEBUG', '').lower() in ('1', 'true', 'yes')
+
+# Suppress Python warnings by default unless debug mode is enabled
+if not DEBUG_MODE:
     warnings.filterwarnings('ignore', message='.*libpng.*')
-    # Also suppress OpenCV warnings that might be related
     warnings.filterwarnings('ignore', category=UserWarning, module='cv2')
+
+@contextlib.contextmanager
+def suppress_stderr():
+    """Context manager to suppress stderr output (for libpng errors)"""
+    if DEBUG_MODE:
+        yield
+    else:
+        with open(os.devnull, 'w') as devnull:
+            old_stderr = sys.stderr
+            sys.stderr = devnull
+            try:
+                yield
+            finally:
+                sys.stderr = old_stderr
 
 API_URL = "https://pad.crc.nd.edu/api/v2"
 

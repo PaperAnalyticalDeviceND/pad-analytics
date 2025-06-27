@@ -33,8 +33,12 @@ class pls:
 
     def quantity(self, in_file, drug):
         try:
-            # grab image
-            img = cv.imread(in_file)
+            # Import suppress_stderr from padanalytics module
+            from . import padanalytics
+            
+            # grab image with stderr suppression for libpng errors
+            with padanalytics.suppress_stderr():
+                img = cv.imread(in_file)
 
             # pls dictionary
             f = {}
