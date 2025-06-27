@@ -71,11 +71,9 @@ Repository = "https://github.com/PaperAnalyticalDeviceND/pad-analytics"
 Issues = "https://github.com/PaperAnalyticalDeviceND/pad-analytics/issues"
 "Source Code" = "https://github.com/PaperAnalyticalDeviceND/pad-analytics"
 
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-dir]
-"" = "src"
+[tool.setuptools]
+packages = ["pad_analytics"]
+package-dir = {"pad_analytics" = "src/pad_analytics"}
 
 [tool.setuptools.package-data]
 "*" = ["*.csv", "*.json", "py.typed"]
