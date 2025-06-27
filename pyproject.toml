@@ -25,7 +25,6 @@ classifiers = [
     "Programming Language :: Python :: 3.9", 
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
 ]
 
@@ -83,7 +82,7 @@ where = ["src"]
 
 [tool.black]
 line-length = 88
-target-version = ['py39', 'py310', 'py311', 'py312']
+target-version = ['py39', 'py310', 'py311']
 
 [tool.flake8]
 max-line-length = 120
