@@ -9,13 +9,13 @@ import pandas as pd
 # Add src to path for testing
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-import padanalytics
+import pad_analytics
 
 
 class TestPadAnalytics:
     """Test core padanalytics functions."""
     
-    @patch('padanalytics.requests.get')
+    @patch('pad_analytics.padanalytics.requests.get')
     def test_get_projects_success(self, mock_get):
         """Test get_projects function with successful API response."""
         # Mock successful API response
@@ -27,7 +27,7 @@ class TestPadAnalytics:
         ]
         mock_get.return_value = mock_response
         
-        result = padanalytics.get_projects()
+        result = pad_analytics.get_projects()
         
         # Verify the result
         assert isinstance(result, pd.DataFrame)
@@ -35,7 +35,7 @@ class TestPadAnalytics:
         assert "id" in result.columns
         assert "name" in result.columns
     
-    @patch('padanalytics.requests.get')
+    @patch('pad_analytics.padanalytics.requests.get')
     def test_get_projects_api_error(self, mock_get):
         """Test get_projects function with API error."""
         # Mock API error
@@ -43,13 +43,13 @@ class TestPadAnalytics:
         mock_response.status_code = 404
         mock_get.return_value = mock_response
         
-        result = padanalytics.get_projects()
+        result = pad_analytics.get_projects()
         
         # Should return empty DataFrame on error
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
     
-    @patch('padanalytics.requests.get')
+    @patch('pad_analytics.padanalytics.requests.get')
     def test_get_card_success(self, mock_get):
         """Test get_card function with successful response."""
         card_id = 12345
@@ -63,7 +63,7 @@ class TestPadAnalytics:
         }
         mock_get.return_value = mock_response
         
-        result = padanalytics.get_card(card_id)
+        result = pad_analytics.get_card(card_id)
         
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 1
@@ -129,7 +129,7 @@ class TestDataProcessing:
     def test_apply_predictions_to_dataframe_empty(self):
         """Test apply_predictions_to_dataframe with empty DataFrame."""
         empty_df = pd.DataFrame()
-        result = padanalytics.apply_predictions_to_dataframe(empty_df, 18)
+        result = pad_analytics.apply_predictions_to_dataframe(empty_df, 18)
         
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
@@ -143,7 +143,7 @@ class TestDataProcessing:
             'prediction': [52.0, 58.0, 32.0, 38.0]
         })
         
-        result = padanalytics.calculate_rmse_by_api(test_data)
+        result = pad_analytics.calculate_rmse_by_api(test_data)
         
         assert isinstance(result, pd.DataFrame)
         assert 'api' in result.columns

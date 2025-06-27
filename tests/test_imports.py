@@ -13,16 +13,16 @@ class TestImports:
     
     def test_padanalytics_import(self):
         """Test that padanalytics module can be imported."""
-        import padanalytics
-        assert hasattr(padanalytics, 'get_projects')
-        assert hasattr(padanalytics, 'get_card')
-        assert hasattr(padanalytics, 'predict')
+        import pad_analytics
+        assert hasattr(pad_analytics, 'get_projects')
+        assert hasattr(pad_analytics, 'get_card')
+        assert hasattr(pad_analytics, 'predict')
     
     def test_pad_helper_import(self):
         """Test that pad_helper module can be imported."""
-        import pad_helper
+        import pad_analytics.pad_helper
         # Basic import test
-        assert pad_helper is not None
+        assert pad_analytics.pad_helper is not None
     
     def test_regionRoutine_import(self):
         """Test that regionRoutine module can be imported."""

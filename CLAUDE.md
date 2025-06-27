@@ -147,7 +147,7 @@ with pad.SDK() as sdk:
 ### Testing Strategy
 - Unit tests in `tests/` directory using pytest framework
 - Integration tests mock API responses to avoid external dependencies
-- Example scripts in `examples/` serve as integration tests
+- Example scripts in `examples/` serve as integration test
 - Virtual environment testing ensures clean installation
 
 ### Known Technical Debt
@@ -159,3 +159,8 @@ with pad.SDK() as sdk:
 - **Chemistry researchers**: PAD performance analysis, colorimetric response evaluation
 - **Computer science researchers**: ML model development, algorithm comparison
 - **Pharmaceutical quality engineers**: Drug quality testing in resource-limited settings
+
+## CI/CD and Development Workflow
+
+### GitHub Actions
+- **Always check the GitHub actions every time you push to the remote**
