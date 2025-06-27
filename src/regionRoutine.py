@@ -10,6 +10,7 @@ import urllib.request
 import warnings
 import math
 from datetime import datetime
+import tempfile
 
 HORIZONTAL_BORDER = 12
 VERTICAL_BORDER = 0
@@ -176,7 +177,10 @@ def addIndex(runSettings):
 def csvReader(target, runSettings, save_dir=SAVE_DIR):
   startTime = datetime.now()
   url = 'https://pad.crc.nd.edu'
-  dest = './temp.png'
+  # Use temporary file instead of hardcoded path
+  temp_file = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+  dest = temp_file.name
+  temp_file.close()
   fm.checkFormating(save_dir)
   errors = open(save_dir+REQS['LOG'], 'a')
   print("Starting...")
