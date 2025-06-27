@@ -36,13 +36,17 @@ class pls:
             # Import DEBUG_MODE from padanalytics module
             from . import padanalytics
             
-            # Inform user about image processing unless in debug mode
+            # Inform user about image processing
             if not padanalytics.DEBUG_MODE:
-                print("Processing PAD image...")
+                print("Processing PAD image... (libpng warnings can be safely ignored)")
             
             # grab image with stderr suppression for libpng errors
             with padanalytics.suppress_stderr():
                 img = cv.imread(in_file)
+                
+            # Clean up the display if not in debug mode
+            if not padanalytics.DEBUG_MODE:
+                print("\r" + " " * 60 + "\r", end="")  # Clear the line
 
             # pls dictionary
             f = {}

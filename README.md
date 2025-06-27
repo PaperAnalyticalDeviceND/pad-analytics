@@ -41,6 +41,8 @@ export PAD_DEBUG=1
 python -c "import pad_analytics as pad; pad.predict(19208, 18)"
 ```
 
+**Note:** You may see `libpng error: Read Error` messages during prediction - these are harmless warnings from corrupted image data on the server side and do not affect the prediction results.
+
 ## Quick Start
 
 ```python
