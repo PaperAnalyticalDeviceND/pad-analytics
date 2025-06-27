@@ -155,3 +155,11 @@ ehthumbs.db
 *.temp
 temp/
 tmp/
+temp.png
+*apagar*
+
+# Multiple README drafts (keep only README.md)
+README_*.md
+
+# Test files in root (should be in tests/ directory)
+test_*.py
