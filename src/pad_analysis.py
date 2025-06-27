@@ -33,8 +33,12 @@ class pls:
 
     def quantity(self, in_file, drug):
         try:
-            # Import suppress_stderr from padanalytics module
+            # Import DEBUG_MODE from padanalytics module
             from . import padanalytics
+            
+            # Inform user about image processing unless in debug mode
+            if not padanalytics.DEBUG_MODE:
+                print("Processing PAD image...")
             
             # grab image with stderr suppression for libpng errors
             with padanalytics.suppress_stderr():

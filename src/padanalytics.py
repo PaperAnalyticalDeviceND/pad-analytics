@@ -29,6 +29,8 @@ DEBUG_MODE = os.getenv('PAD_DEBUG', '').lower() in ('1', 'true', 'yes')
 if not DEBUG_MODE:
     warnings.filterwarnings('ignore', message='.*libpng.*')
     warnings.filterwarnings('ignore', category=UserWarning, module='cv2')
+    # Set OpenCV logging level to suppress libpng errors
+    cv.setLogLevel(cv.LOG_LEVEL_ERROR)
 
 @contextlib.contextmanager
 def suppress_stderr():
@@ -36,13 +38,17 @@ def suppress_stderr():
     if DEBUG_MODE:
         yield
     else:
-        with open(os.devnull, 'w') as devnull:
-            old_stderr = sys.stderr
-            sys.stderr = devnull
-            try:
-                yield
-            finally:
-                sys.stderr = old_stderr
+        # Try to suppress at the system level using os.dup2
+        import os
+        old_stderr = os.dup(2)
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull, 2)
+            yield
+        finally:
+            os.dup2(old_stderr, 2)
+            os.close(devnull)
+            os.close(old_stderr)
 
 API_URL = "https://pad.crc.nd.edu/api/v2"
 
