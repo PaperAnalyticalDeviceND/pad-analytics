@@ -29,7 +29,7 @@ pip install -e .
 ## Quick Start
 
 ```python
-from pad_analytics import padanalytics as pad
+import pad_analytics as pad
 
 # Explore available projects
 projects = pad.get_projects()
