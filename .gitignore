@@ -112,6 +112,7 @@ env.bak/
 venv.bak/
 temp_test_env/
 test_env/
+pri/
 
 # Spyder project settings
 .spyderproject
