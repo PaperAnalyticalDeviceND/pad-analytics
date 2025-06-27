@@ -13,7 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/PaperAnalyticalDeviceND/pad-analytics",
     packages=find_packages(where="src"),
-    package_dir={"pad_analytics": "src"},
+    package_dir={"": "src"},
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Science/Research",
