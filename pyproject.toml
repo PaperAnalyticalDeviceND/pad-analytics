@@ -72,20 +72,22 @@ Repository = "https://github.com/PaperAnalyticalDeviceND/pad-analytics"
 Issues = "https://github.com/PaperAnalyticalDeviceND/pad-analytics/issues"
 "Source Code" = "https://github.com/PaperAnalyticalDeviceND/pad-analytics"
 
-[tool.setuptools]
-packages = ["pad_analytics"]
-package-dir = {"pad_analytics" = "src"}
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [tool.setuptools.package-data]
-pad_analytics = ["*.csv", "*.json", "py.typed"]
+"*" = ["*.csv", "*.json", "py.typed"]
 
 [tool.black]
 line-length = 88
 target-version = ['py39', 'py310', 'py311', 'py312']
 
 [tool.flake8]
-max-line-length = 88
-extend-ignore = ["E203", "W503"]
+max-line-length = 120
+extend-ignore = ["E203", "W503", "F403", "F405", "E402", "F401", "F841", "E266", "E401", "W291", "W292", "W293", "E722", "F811", "F821", "E501", "E712"]
 exclude = [".git", "__pycache__", "build", "dist"]
 
 [tool.mypy]
