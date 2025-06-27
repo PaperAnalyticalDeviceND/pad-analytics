@@ -30,7 +30,16 @@ if not DEBUG_MODE:
     warnings.filterwarnings("ignore", message=".*libpng.*")
     warnings.filterwarnings("ignore", category=UserWarning, module="cv2")
     # Set OpenCV logging level to suppress libpng errors
-    cv.setLogLevel(cv.LOG_LEVEL_ERROR)
+    try:
+        # Try new OpenCV constant first
+        cv.setLogLevel(0)  # 0 = LOG_LEVEL_SILENT
+    except AttributeError:
+        try:
+            # Try older constant if available
+            cv.setLogLevel(cv.LOG_LEVEL_ERROR)
+        except AttributeError:
+            # Ignore if not available
+            pass
 
 
 @contextlib.contextmanager
