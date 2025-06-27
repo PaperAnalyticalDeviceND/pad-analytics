@@ -64,9 +64,9 @@ pad-analytics = "pad_analytics.padanalytics:main"
 [project.urls]
 Homepage = "https://padproject.nd.edu"
 Documentation = "https://pad.crc.nd.edu/docs"
-Repository = "https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2"
-Issues = "https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2/issues"
-"Source Code" = "https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2"
+Repository = "https://github.com/PaperAnalyticalDeviceND/pad-analytics"
+Issues = "https://github.com/PaperAnalyticalDeviceND/pad-analytics/issues"
+"Source Code" = "https://github.com/PaperAnalyticalDeviceND/pad-analytics"
 
 [tool.setuptools]
 packages = ["pad_analytics"]

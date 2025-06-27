@@ -45,7 +45,7 @@ python -m build
 python -m twine upload dist/*
 
 # Test installation from GitHub
-pip install git+https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2.git@refactor-installable-package
+pip install git+https://github.com/PaperAnalyticalDeviceND/pad-analytics.git@refactor-installable-package
 ```
 
 ### Development Tools

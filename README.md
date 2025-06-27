@@ -183,7 +183,7 @@ If you use this package in your research, please cite:
 
 ```bibtex
 @software{pad_analytics,
-  title = {PAD ML Workflow: Python Tools for Paper Analytical Device Research},
+  title = {PAD Analytics: Python Tools for Paper Analytical Device Research},
   author = {Paper Analytical Device Project Team},
   institution = {University of Notre Dame},
   year = {2024},
@@ -219,4 +219,4 @@ If you are extending this package and need to download files programmatically:
 - If you must use it, add security measures to validate any downloaded files
 - Only download files from trusted sources
 
-We plan to upgrade to Keras 3.8.0+ in a future release to eliminate this dependency concern. See [Issue #2](https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2/issues/2) for more details.
+We plan to upgrade to Keras 3.8.0+ in a future release to eliminate this dependency concern. See [Issue #2](https://github.com/PaperAnalyticalDeviceND/pad-analytics/issues/2) for more details.

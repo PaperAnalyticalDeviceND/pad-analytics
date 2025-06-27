@@ -11,7 +11,7 @@ setup(
     description="Python tools for analyzing Paper Analytical Devices (PADs) to detect and quantify pharmaceutical compounds through colorimetric analysis",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2",
+    url="https://github.com/PaperAnalyticalDeviceND/pad-analytics",
     packages=find_packages(where="src"),
     package_dir={"pad_analytics": "src"},
     classifiers=[
@@ -60,8 +60,8 @@ setup(
     keywords="paper analytical device PAD colorimetric analysis pharmaceutical quality machine learning drug detection",
     project_urls={
         "Documentation": "https://pad.crc.nd.edu/docs",
-        "Source": "https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2",
-        "Tracker": "https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2/issues",
+        "Source": "https://github.com/PaperAnalyticalDeviceND/pad-analytics",
+        "Tracker": "https://github.com/PaperAnalyticalDeviceND/pad-analytics/issues",
         "Homepage": "https://padproject.nd.edu",
     },
     entry_points={
