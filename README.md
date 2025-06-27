@@ -1,99 +1,210 @@
+# PAD ML Workflow
 
-# PAD ML Workflow using v2 API
+A Python package for researchers to explore and analyze Paper Analytical Device (PAD) data, build machine learning models, and develop new analytical methods for pharmaceutical quality testing.
 
-[![PAD API v2 Documentation](https://img.shields.io/badge/PAD%20API%20v2-Documentation-blue?logo=swagger)](https://pad.crc.nd.edu/docs)
+## About PADs
 
-This repository provides a complete workflow for exploring and training machine learning models using data from the **PAD API v2**. The notebooks will guide you through each step, from setting up your environment to evaluating your trained models.
+[Paper Analytical Devices (PADs)](https://padproject.nd.edu) are low-cost diagnostic tools designed to verify pharmaceutical authenticity in low-resource settings. When a dissolved drug sample is applied to a PAD card, it produces colorimetric patterns that can be analyzed to determine drug quality and composition.
 
----
+This package provides programmatic access to PAD image data collected through the [PADReader mobile app](https://padproject.nd.edu) and enables researchers to:
+- Explore historical PAD test data
+- Apply and evaluate machine learning models
+- Develop new analytical methods
+- Build custom ML pipelines for PAD analysis
 
-## 1. Python Basics for PAD Project Data Exploration
+## Installation
 
-Before diving into the machine learning pipeline, it's important to understand the Python fundamentals and how to explore data from the PAD API. This notebook introduces you to:
-- Python basics (variables, functions, loops, etc.).
-- Working with **Pandas** for data manipulation.
-- Reading and saving CSV files.
-- Exploring data from PAD projects.
+```bash
+pip install pad-analytics
+```
 
-You can find the notebook here:  [**Python Basics for PAD Project Data Exploration**](https://colab.research.google.com/drive/1CWoDaFxGord3w60mJg7t2pufraqXhdH-)
+For development:
+```bash
+git clone https://github.com/PaperAnalyticalDeviceND/pad-analytics.git
+cd pad-analytics
+pip install -e .
+```
 
-[![**Python Basics for PAD Project Data Exploration**](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1CWoDaFxGord3w60mJg7t2pufraqXhdH-)
+## Quick Start
 
+```python
+from pad_analytics import padanalytics as pad
 
-## 2. Setting Up Your Environment in Google Colab
+# Explore available projects
+projects = pad.get_projects()
+print(f"Found {len(projects)} projects")
 
-To run the notebooks efficiently, we recommend using **Google Colab** along with **Google Drive** for storage. This environment allows you to utilize GPU/TPU resources for model training and manage data files directly from your Google Drive.
+# Get PAD test cards from a specific project
+cards = pad.get_project_cards(project_name="Amoxicillin Study 2023")
 
-**Open the Pre-configured Notebook**:  
-Access the notebook by clicking the link below. This notebook will guide you through mounting Google Drive and setting up the necessary packages for the workflow.
-   
-You can find the notebook here: [**Google Colab Initial Setup**](https://colab.research.google.com/drive/1fsHOC4YHwLNRNn64ymHitD_iW6JPFiMh)
-   
-[![**Google Colab Initial Setup**](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1fsHOC4YHwLNRNn64ymHitD_iW6JPFiMh)
+# Analyze a specific PAD card
+card_data = pad.get_card(card_id=19208)
+print(f"Drug tested: {card_data['sample_name'].values[0]}")
+print(f"Concentration: {card_data['quantity'].values[0]} µg/mL")
 
-   
+# Apply a pre-trained model
+actual, prediction = pad.predict(card_id=19208, model_id=18)
+```
 
-## 3. Explore Data Available via PAD API
+## Key Features
 
-The PAD API provides access to rich datasets that you can explore and prepare for machine learning tasks. The following notebooks will help you interact with the API, fetch data, and prepare it for machine learning workflows.
+### 1. Data Exploration
+Access the complete PAD database through the [OAS-compliant API](https://pad.crc.nd.edu/openapi.json):
 
-**Exploration Notebook**: Use this notebook to explore the available data via the PAD API. You can visualize and understand the structure of the data, analyze metadata, and assess data quality.
+```python
+# List all projects
+projects = pad.get_projects()
 
-You can find the notebook here: [**Exploration Notebook in Google Colab**](https://colab.research.google.com/drive/12ydoCcnnwWkyBQsO3LOe70ezCB9QuB-0) 
+# Get cards by various criteria
+cards = pad.get_project_cards(project_id=123)
+cards = pad.get_card_by_sample_id(sample_id=456)
 
-[![**Exploration Notebook in Google Colab**](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/12ydoCcnnwWkyBQsO3LOe70ezCB9QuB-0)  
+# View available ML models
+models = pad.get_models()
+```
 
+### 2. Model Application
+Apply pre-trained models to PAD images:
 
-## 4. ML Pipeline Notebooks
+```python
+# Neural Network models (for classification)
+actual, (drug_name, confidence, energy) = pad.predict(card_id, nn_model_id)
 
-The core of this repository includes notebooks to guide you through building, training, and evaluating machine learning models using PAD API data. Each stage of the ML pipeline is covered in detail, from data preprocessing to model evaluation.
+# PLS models (for concentration quantification)
+actual_conc, predicted_conc = pad.predict(card_id, pls_model_id)
 
-### Key Notebooks in the ML Pipeline:
+# Batch predictions on datasets
+results = pad.apply_predictions_to_dataframe(dataset_df, model_id)
+```
 
-- **Data Preparation Notebook**:
-  This notebook will help you clean, transform, and prepare your data for model training. Tasks include handling missing values, feature selection, and normalization.
+### 3. Visualization
+Interactive widgets for Jupyter notebooks:
 
-  [**Data Preparation Notebook**](link_to_data_preparation_notebook)
+```python
+# Display PAD card with metadata
+pad.show_card(card_id=12345)
 
-- **Create Dataset**:  
-  Learn how to create and organize datasets for machine learning models. You will work with the processed data from the previous notebooks and set up your training and testing datasets.
+# Show prediction results
+pad.show_prediction(card_id=12345, model_id=18)
 
-  [**Create Dataset Notebook**](link_to_create_dataset_notebook)
+# Display multiple cards grouped by drug type
+pad.show_grouped_cards(cards_df, group_column='sample_name')
+```
 
-- **Training Notebook**:  
-  Use this notebook to define, train, and fine-tune your machine learning models. The notebook includes examples for building models using libraries such as `scikit-learn`, `tensorflow`, or `keras`.
+### 4. Custom Analysis
+Build your own ML pipelines:
 
-  [**Training Notebook**](link_to_training_notebook)
+```python
+# Access raw image processing functions
+from pad_analytics import regionRoutine, pixelProcessing
 
-- **Evaluation Notebook**:  
-  After training your model, use the evaluation notebook to measure its performance using appropriate metrics. Visualize model accuracy, confusion matrices, and other performance indicators.
+# Extract color features from PAD regions
+features = regionRoutine.fullRoutine(pad_image, intensity_func, {}, True, 10)
 
-  [**Evaluation Notebook**](link_to_evaluation_notebook)
+# Create custom PLS models
+pls_model = pad.pls('path/to/coefficients.csv')
+concentration = pls_model.quantity('pad_image.png', 'amoxicillin')
+```
 
----
+## Example Notebook
 
-## 5. Workflow Summary
+See [`notebooks/using_padml_package.ipynb`](notebooks/using_padml_package.ipynb) for a comprehensive example of:
+- Exploring PAD projects and data
+- Applying different model types
+- Visualizing results
+- Evaluating model performance
+- Building custom analysis pipelines
 
-This repository offers a comprehensive set of tools and notebooks that cover the following steps:
-- **Data Exploration**: Understand the data using Pandas and visualization tools.
-- **Data Preparation**: Clean and transform the data for modeling.
-- **Model Training**: Train machine learning models on the prepared dataset.
-- **Evaluation**: Evaluate model performance and make adjustments as needed.
+## Research Applications
 
-Each notebook in this repository is designed to work together as part of a smooth, integrated pipeline. You can easily modify any step of the process to suit your specific needs.
+This package supports various research activities:
 
----
+### For Chemistry Researchers
+- Analyze PAD performance across different drug formulations
+- Evaluate colorimetric response patterns
+- Optimize PAD card designs
+- Validate new analytical methods
 
-Feel free to explore the [**PAD API v2 Documentation**](https://pad.crc.nd.edu/docs) to learn more about the API and available data.
+### For Computer Science Researchers  
+- Develop new ML models for PAD analysis
+- Compare algorithm performance (NN vs PLS vs custom)
+- Implement novel image processing techniques
+- Create ensemble methods for improved accuracy
 
----
+## The PAD Workflow
 
-## Next Steps
-Once you’ve completed the notebooks provided, you can:
-- Experiment with different model architectures.
-- Adjust hyperparameters for better performance.
-- Extend the workflow to include more advanced techniques like transfer learning or model tuning.
+1. **Sample Preparation**: Dissolve pharmaceutical sample
+2. **Application**: Apply sample to PAD card
+3. **Reaction**: Chemical indicators produce color patterns
+4. **Imaging**: Capture with PADReader mobile app
+5. **Analysis**: ML algorithms interpret patterns
+6. **Results**: Determine drug identity and quality
 
+This package focuses on steps 5-6, providing tools to analyze the collected images and develop better analytical methods.
 
-  
+## API Documentation
 
+### Core Functions
+
+| Function | Description | Returns |
+|----------|-------------|---------|
+| `get_projects()` | List all PAD projects | DataFrame of projects |
+| `get_card(card_id)` | Get specific card data | Card metadata + image URL |
+| `predict(card_id, model_id)` | Apply model to card | (actual, prediction) |
+| `get_models()` | List available models | DataFrame of models |
+| `show_card(card_id)` | Display card in notebook | Interactive widget |
+
+### Model Types
+
+**Neural Networks (TensorFlow Lite)**
+- Purpose: Drug identification and multi-class classification
+- Output: `(predicted_class, probability, energy_score)`
+
+**PLS (Partial Least Squares)**
+- Purpose: Concentration quantification
+- Output: `predicted_concentration` (float)
+
+## Requirements
+
+- Python >= 3.8
+- TensorFlow >= 2.13.0
+- OpenCV-Python >= 4.5.0
+- NumPy, Pandas, scikit-learn
+- ipywidgets (for notebook visualizations)
+
+## Contributing
+
+We welcome contributions from both chemistry and computer science researchers! Please see our [Contributing Guide](CONTRIBUTING.md).
+
+## Citation
+
+If you use this package in your research, please cite:
+
+```bibtex
+@software{pad_analytics,
+  title = {PAD ML Workflow: Python Tools for Paper Analytical Device Research},
+  author = {Paper Analytical Device Project Team},
+  institution = {University of Notre Dame},
+  year = {2024},
+  url = {https://github.com/PaperAnalyticalDeviceND/pad-analytics}
+}
+```
+
+## License
+
+MIT License - see [LICENSE](LICENSE)
+
+## Links
+
+- [PAD Project Homepage](https://padproject.nd.edu)
+- [PADReader Mobile App](https://padproject.nd.edu)
+- [API Documentation](https://pad.crc.nd.edu/docs)
+- [OpenAPI Specification](https://pad.crc.nd.edu/openapi.json)
+- [GitHub Repository](https://github.com/PaperAnalyticalDeviceND/pad-analytics)
+
+## Support
+
+For questions about:
+- PAD technology and chemistry: Visit [padproject.nd.edu](https://padproject.nd.edu)
+- Package usage and ML models: Open an [issue on GitHub](https://github.com/PaperAnalyticalDeviceND/pad-analytics/issues)
+- API access: Check the [API documentation](https://pad.crc.nd.edu/docs)

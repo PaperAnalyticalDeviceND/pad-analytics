@@ -110,6 +110,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+temp_test_env/
+test_env/
 
 # Spyder project settings
 .spyderproject
