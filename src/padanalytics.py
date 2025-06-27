@@ -1,5 +1,6 @@
 import requests, os
 import urllib3
+import warnings
 from PIL import Image, ImageFile
 import ipywidgets as widgets
 from IPython.display import display, HTML
@@ -18,6 +19,12 @@ import cv2 as cv
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+# Suppress libpng warnings by default unless debug mode is enabled
+if not os.getenv('PAD_DEBUG', '').lower() in ('1', 'true', 'yes'):
+    warnings.filterwarnings('ignore', message='.*libpng.*')
+    # Also suppress OpenCV warnings that might be related
+    warnings.filterwarnings('ignore', category=UserWarning, module='cv2')
 
 API_URL = "https://pad.crc.nd.edu/api/v2"
 

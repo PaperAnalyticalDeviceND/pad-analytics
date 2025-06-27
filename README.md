@@ -19,11 +19,26 @@ This package provides programmatic access to PAD image data collected through th
 pip install pad-analytics
 ```
 
+Or install directly from GitHub:
+```bash
+pip install git+https://github.com/PaperAnalyticalDeviceND/pad-analytics.git
+```
+
 For development:
 ```bash
 git clone https://github.com/PaperAnalyticalDeviceND/pad-analytics.git
 cd pad-analytics
 pip install -e .
+```
+
+### Debug Mode
+By default, the package suppresses technical warnings for a cleaner user experience. To enable debug output:
+
+```bash
+PAD_DEBUG=1 python your_script.py
+# or
+export PAD_DEBUG=1
+python -c "import pad_analytics as pad; pad.predict(19208, 18)"
 ```
 
 ## Quick Start
