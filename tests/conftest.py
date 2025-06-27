@@ -1,8 +1,9 @@
-"""Pytest configuration and fixtures."""
+"""Pytest configuration and fixtures for pad-analytics tests."""
 
 import pytest
 import os
 import sys
+from unittest.mock import patch, MagicMock
 
 # Add src to path for all tests
 @pytest.fixture(scope="session", autouse=True)
@@ -11,6 +12,31 @@ def setup_path():
     src_path = os.path.join(os.path.dirname(__file__), '..', 'src')
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
+
+
+@pytest.fixture
+def clean_environment():
+    """Fixture that ensures clean environment variables for testing."""
+    # Store original values
+    original_debug = os.environ.get('PAD_DEBUG')
+    
+    yield
+    
+    # Restore original values
+    if original_debug is not None:
+        os.environ['PAD_DEBUG'] = original_debug
+    elif 'PAD_DEBUG' in os.environ:
+        del os.environ['PAD_DEBUG']
+
+
+@pytest.fixture
+def mock_requests():
+    """Fixture that mocks requests.get for API calls."""
+    with patch('requests.get') as mock_get:
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+        yield mock_get, mock_response
 
 
 @pytest.fixture

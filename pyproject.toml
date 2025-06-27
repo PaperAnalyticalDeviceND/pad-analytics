@@ -48,9 +48,14 @@ dependencies = [
 dev = [
     "pytest>=6.0",
     "pytest-cov>=2.0",
+    "pytest-mock>=3.0",
     "black>=21.0",
     "flake8>=3.9",
     "mypy>=0.910",
+    "safety>=1.10.0",
+    "bandit>=1.7.0",
+    "build>=0.8.0",
+    "twine>=4.0.0",
 ]
 notebooks = [
     "jupyter>=1.0.0",
@@ -73,7 +78,7 @@ packages = ["pad_analytics"]
 package-dir = {"pad_analytics" = "src"}
 
 [tool.setuptools.package-data]
-pad_analytics = ["*.csv", "*.json"]
+pad_analytics = ["*.csv", "*.json", "py.typed"]
 
 [tool.black]
 line-length = 88

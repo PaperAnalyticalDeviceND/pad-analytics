@@ -1,1 +1,1 @@
-"""Tests for pad-ml-workflow package."""
+"""Tests for pad-analytics package."""
