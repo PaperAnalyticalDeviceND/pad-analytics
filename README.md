@@ -2,14 +2,6 @@
 
 A Python package for researchers to explore and analyze Paper Analytical Device (PAD) data, build machine learning models, and develop new analytical methods for pharmaceutical quality testing.
 
-## ⚠️ Security Notice
-
-This package currently uses Keras 2.14.0 which has a known security vulnerability (CVE-2024-55459). Until we upgrade to Keras 3.8.0+:
-- **DO NOT** use `keras.utils.get_file()` with untrusted URLs
-- If you must use it, add security measures to validate any downloaded files
-- Only download files from trusted sources
-
-See [Issue #2](https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2/issues/2) for more details.
 
 ## About PADs
 
@@ -217,3 +209,14 @@ For questions about:
 - PAD technology and chemistry: Visit [padproject.nd.edu](https://padproject.nd.edu)
 - Package usage and ML models: Open an [issue on GitHub](https://github.com/PaperAnalyticalDeviceND/pad-analytics/issues)
 - API access: Check the [API documentation](https://pad.crc.nd.edu/docs)
+
+## Security Notice
+
+**Note about Keras dependency**: This package uses Keras 2.14.0 which has a known security vulnerability (CVE-2024-55459) related to the `keras.utils.get_file()` function. However, **pad-analytics is not affected** because we do not use this function in our codebase.
+
+If you are extending this package and need to download files programmatically:
+- **DO NOT** use `keras.utils.get_file()` with untrusted URLs
+- If you must use it, add security measures to validate any downloaded files
+- Only download files from trusted sources
+
+We plan to upgrade to Keras 3.8.0+ in a future release to eliminate this dependency concern. See [Issue #2](https://github.com/PaperAnalyticalDeviceND/pad-ml-workflow-v2/issues/2) for more details.
