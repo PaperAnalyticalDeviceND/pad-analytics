@@ -8,6 +8,7 @@ import io
 import pandas as pd
 import tensorflow as tf
 from sklearn.metrics import mean_squared_error
+import tempfile
 
 from . import regionRoutine
 from . import pad_helper
@@ -831,10 +832,18 @@ def predict(card_id, model_id, actual_api=None, verbose=False):
   if model_type == 'tf_lite':
     prediction = nn_predict(image_url,  model_file, labels)
   else:
-    temp_file = './temp.png'
-    download_file(image_url, temp_file, './')
-    pls_conc = pls(model_file)
-    prediction = pls_conc.quantity(temp_file, actual_api) 
+    # Use temporary directory for better cross-platform compatibility
+    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+      temp_filename = temp_file.name
+    
+    try:
+      download_file(image_url, os.path.basename(temp_filename), os.path.dirname(temp_filename))
+      pls_conc = pls(model_file)
+      prediction = pls_conc.quantity(temp_filename, actual_api)
+    finally:
+      # Clean up temporary file
+      if os.path.exists(temp_filename):
+        os.unlink(temp_filename) 
 
   return actual_label, prediction
 
