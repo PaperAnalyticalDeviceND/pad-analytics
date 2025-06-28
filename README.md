@@ -53,12 +53,12 @@ projects = pad.get_projects()
 print(f"Found {len(projects)} projects")
 
 # Get PAD test cards from a specific project
-cards = pad.get_project_cards(project_name="Amoxicillin Study 2023")
+cards = pad.get_project_cards(project_name="ChemoPADNNtraining2024")
 
 # Analyze a specific PAD card
 card_data = pad.get_card(card_id=19208)
 print(f"Drug tested: {card_data['sample_name'].values[0]}")
-print(f"Concentration: {card_data['quantity'].values[0]} µg/mL")
+print(f"Concentration: {card_data['quantity'].values[0]} %")
 
 # Apply a pre-trained model
 actual, prediction = pad.predict(card_id=19208, model_id=18)
@@ -74,8 +74,8 @@ Access the complete PAD database through the [OAS-compliant API](https://pad.crc
 projects = pad.get_projects()
 
 # Get cards by various criteria
-cards = pad.get_project_cards(project_id=123)
-cards = pad.get_card_by_sample_id(sample_id=456)
+cards = pad.get_project_cards(project_ids=12)
+cards = pad.get_card_by_sample_id(65490)
 
 # View available ML models
 models = pad.get_models()
@@ -86,13 +86,11 @@ Apply pre-trained models to PAD images:
 
 ```python
 # Neural Network models (for classification)
-actual, (drug_name, confidence, energy) = pad.predict(card_id, nn_model_id)
+actual, (drug_name, confidence, energy) = pad.predict(card_id=19208, model_id=16)
 
 # PLS models (for concentration quantification)
-actual_conc, predicted_conc = pad.predict(card_id, pls_model_id)
+actual_conc, predicted_conc = pad.predict(card_id=19208, model_id=18)
 
-# Batch predictions on datasets
-results = pad.apply_predictions_to_dataframe(dataset_df, model_id)
 ```
 
 ### 3. Visualization
@@ -100,10 +98,10 @@ Interactive widgets for Jupyter notebooks:
 
 ```python
 # Display PAD card with metadata
-pad.show_card(card_id=12345)
+pad.show_card(card_id=19208)
 
 # Show prediction results
-pad.show_prediction(card_id=12345, model_id=18)
+pad.show_prediction(card_id=19208, model_id=18)
 
 # Display multiple cards grouped by drug type
 pad.show_grouped_cards(cards_df, group_column='sample_name')
