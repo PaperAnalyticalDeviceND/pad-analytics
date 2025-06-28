@@ -84,7 +84,7 @@ def _get_mapping_file_path():
         pass
     
     # Fallback: try path relative to this module (development mode)
-    module_dir = os.path.dirname(os.path.abspath(__file__))
+    module_dir = os.path.dirname(os.path.realpath(__file__))
     package_data_path = os.path.join(module_dir, "data", "model_dataset_mapping.csv")
     if os.path.exists(package_data_path):
         return package_data_path
