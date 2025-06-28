@@ -40,6 +40,7 @@ dependencies = [
     "pillow>=8.0.0",
     "opencv-python>=4.5.0",
     "ipywidgets>=7.6.0",
+    "importlib_resources>=1.3.0; python_version<'3.9'",  # For resource file access on older Python
 ]
 
 [project.optional-dependencies]

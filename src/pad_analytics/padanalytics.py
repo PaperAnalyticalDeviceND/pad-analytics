@@ -19,6 +19,13 @@ import numpy as np
 import csv
 import cv2 as cv
 
+# For resource file access
+try:
+    from importlib import resources
+except ImportError:
+    # Python < 3.9 fallback
+    import importlib_resources as resources
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -64,7 +71,40 @@ def suppress_stderr():
 
 API_URL = "https://pad.crc.nd.edu/api/v2"
 
-MODEL_DATASET_MAPPING = "./data/model_dataset_mapping.csv"
+
+def _get_mapping_file_path():
+    """Get the correct path to the model dataset mapping file."""
+    try:
+        # Try to get the file from package resources (when installed)
+        package_path = resources.files("pad_analytics")
+        mapping_file = package_path / "data" / "model_dataset_mapping.csv"
+        if mapping_file.exists():
+            return str(mapping_file)
+    except (ImportError, AttributeError, FileNotFoundError):
+        pass
+    
+    # Fallback: try path relative to this module (development mode)
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    package_data_path = os.path.join(module_dir, "data", "model_dataset_mapping.csv")
+    if os.path.exists(package_data_path):
+        return package_data_path
+    
+    # Fallback: try relative path from current working directory
+    relative_path = "./data/model_dataset_mapping.csv"
+    if os.path.exists(relative_path):
+        return relative_path
+    
+    # Final fallback: try path relative to project root
+    package_root = os.path.dirname(os.path.dirname(module_dir))
+    fallback_path = os.path.join(package_root, "data", "model_dataset_mapping.csv")
+    if os.path.exists(fallback_path):
+        return fallback_path
+    
+    # If none found, return the package path (will cause error with helpful message)
+    return package_data_path
+
+
+MODEL_DATASET_MAPPING = _get_mapping_file_path()
 
 
 def get_data_api(request_url, data_type=""):
@@ -1120,8 +1160,32 @@ def apply_predictions_to_dataframe(dataset_df, model_id):
 
 
 def get_model_dataset_mapping(mapping_file_path=MODEL_DATASET_MAPPING):
-    model_dataset_mapping = pd.read_csv(mapping_file_path)
-    return model_dataset_mapping
+    """
+    Get the model dataset mapping from the CSV file.
+    
+    Parameters:
+        mapping_file_path (str): Path to the mapping CSV file
+        
+    Returns:
+        pd.DataFrame: The mapping dataframe
+        
+    Raises:
+        FileNotFoundError: If the mapping file cannot be found
+    """
+    if not os.path.exists(mapping_file_path):
+        raise FileNotFoundError(
+            f"Model dataset mapping file not found at: {mapping_file_path}\n"
+            f"This file is required for dataset discovery features. "
+            f"Please ensure the pad-analytics package was installed correctly."
+        )
+    
+    try:
+        model_dataset_mapping = pd.read_csv(mapping_file_path)
+        return model_dataset_mapping
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to read model dataset mapping file '{mapping_file_path}': {e}"
+        ) from e
 
 
 def get_dataset_list(mapping_file_path=MODEL_DATASET_MAPPING):
@@ -1146,7 +1210,17 @@ def get_dataset_list(mapping_file_path=MODEL_DATASET_MAPPING):
 
 
 def get_dataset_from_model_id(model_id, mapping_file_path=MODEL_DATASET_MAPPING):
-    model_dataset_mapping = pd.read_csv(mapping_file_path)
+    """
+    Get dataset information for a specific model ID.
+    
+    Parameters:
+        model_id (int): The model ID to look up
+        mapping_file_path (str): Path to the mapping CSV file
+        
+    Returns:
+        pd.DataFrame or None: Combined train/test dataset or None if not found
+    """
+    model_dataset_mapping = get_model_dataset_mapping(mapping_file_path)
     model_dataset = model_dataset_mapping[model_dataset_mapping["Model ID"] == model_id]
 
     # display(model_dataset)
