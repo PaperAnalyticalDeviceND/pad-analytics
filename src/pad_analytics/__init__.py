@@ -13,6 +13,7 @@ try:
         get_projects,
         get_project_cards,
         get_card_by_id,
+        get_card_by_sample_id,
         get_card,
         get_project_by_id,
         get_project_by_name,
@@ -33,6 +34,8 @@ try:
         get_dataset,
         calculate_rmse,
         calculate_rmse_by_api,
+        download_file,
+        standardize_names,
     )
     _PADANALYTICS_IMPORTED = True
 except ImportError as e:
@@ -63,6 +66,7 @@ if _PADANALYTICS_IMPORTED:
         "get_projects",
         "get_project_cards",
         "get_card_by_id",
+        "get_card_by_sample_id",
         "get_card",
         "get_project_by_id",
         "get_project_by_name", 
@@ -83,6 +87,8 @@ if _PADANALYTICS_IMPORTED:
         "get_dataset",
         "calculate_rmse",
         "calculate_rmse_by_api",
+        "download_file",
+        "standardize_names",
     ])
 
 # Add available submodules
