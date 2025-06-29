@@ -104,23 +104,10 @@ pad.show_card(card_id=19208)
 pad.show_prediction(card_id=19208, model_id=18)
 
 # Display multiple cards grouped by drug type
+cards_df = pad.get_project_cards(project_name="ChemoPADNNtraining2024")
 pad.show_grouped_cards(cards_df, group_column='sample_name')
 ```
 
-### 4. Custom Analysis
-Build your own ML pipelines:
-
-```python
-# Access raw image processing functions
-from pad_analytics import regionRoutine, pixelProcessing
-
-# Extract color features from PAD regions
-features = regionRoutine.fullRoutine(pad_image, intensity_func, {}, True, 10)
-
-# Create custom PLS models
-pls_model = pad.pls('path/to/coefficients.csv')
-concentration = pls_model.quantity('pad_image.png', 'amoxicillin')
-```
 
 ## Example Notebook
 
