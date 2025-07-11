@@ -186,6 +186,52 @@ class DatasetManager:
         
         return sorted(list(datasets))
     
+    def get_datasets(self) -> pd.DataFrame:
+        """
+        Get clean overview of all available datasets.
+        
+        Returns:
+            pd.DataFrame with columns:
+            - Dataset Name: Name of the dataset
+            - Total Records: Combined training + testing records
+            - Description: Dataset description from catalog
+            - Documentation: Link to dataset readme
+            - Source: Data source (catalog/static/hybrid)
+        """
+        datasets = []
+        
+        # Get all unique dataset names
+        dataset_names = self.get_dataset_list()
+        
+        for name in dataset_names:
+            info = self.get_dataset_info(name)
+            
+            # Calculate total records
+            total_records = info.get('record_count', 'N/A')
+            
+            # Get description
+            description = info.get('description', '')
+            if not description and 'models' in info and info['models']:
+                # For static-only datasets, create description from models
+                model_count = len(info['models'])
+                description = f"Dataset used by {model_count} model(s)"
+            
+            # Generate documentation link
+            doc_link = f"https://padproject.info/pad_dataset_registry/datasets/{name}/readme/"
+            
+            # Determine source
+            source = info.get('source', 'unknown')
+            
+            datasets.append({
+                'Dataset Name': name,
+                'Total Records': total_records,
+                'Description': description,
+                'Documentation': doc_link,
+                'Source': source
+            })
+        
+        return pd.DataFrame(datasets)
+    
     def get_dataset_info(self, dataset_name: str) -> Dict:
         """
         Get comprehensive dataset information.

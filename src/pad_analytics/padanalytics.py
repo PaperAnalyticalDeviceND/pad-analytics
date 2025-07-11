@@ -1199,60 +1199,55 @@ def get_model_dataset_mapping(mapping_file_path=MODEL_DATASET_MAPPING):
         ) from e
 
 
-def get_dataset_list(mapping_file_path=MODEL_DATASET_MAPPING, use_dynamic=True):
+def get_dataset_list(mapping_file_path=MODEL_DATASET_MAPPING):
     """
-    Get list of available datasets.
+    Get list of available datasets (original function for backward compatibility).
+    
+    Returns DataFrame with Training Dataset, Test Dataset, and Model ID columns.
     
     Parameters:
-        mapping_file_path (str): Path to the mapping CSV file (for backward compatibility)
-        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+        mapping_file_path (str): Path to the mapping CSV file
         
     Returns:
-        pd.DataFrame: DataFrame with dataset information including models
+        pd.DataFrame: DataFrame with original structure for backward compatibility
     """
-    if use_dynamic:
-        # Use the new dataset manager
-        dm = get_dataset_manager()
-        dataset_names = dm.get_dataset_list()
-        
-        # Build a DataFrame with comprehensive info
-        datasets = []
-        for name in dataset_names:
-            info = dm.get_dataset_info(name)
-            train_url, test_url = dm.get_dataset_urls(name)
-            
-            dataset_entry = {
-                'Dataset Name': name,
-                'Training Dataset': train_url,
-                'Test Dataset': test_url,
-                'Model ID': [m['model_id'] for m in info.get('models', [])],
-                'Description': info.get('description', ''),
-                'Record Count': info.get('record_count', None),
-                'Source': info.get('source', 'unknown')
-            }
-            datasets.append(dataset_entry)
-        
-        return pd.DataFrame(datasets)
-    else:
-        # Fallback to old method
-        mapping_df = get_model_dataset_mapping(mapping_file_path)
-        datasets_df = (
-            mapping_df.groupby(["Dataset Name", "Training Dataset", "Test Dataset"])[
-                "Model ID"
-            ]
-            .apply(list)
-            .reset_index()
-        )
-        datasets_df = pd.concat(
-            [
-                datasets_df,
-                mapping_df[mapping_df["Model ID"].isna()][
-                    ["Dataset Name", "Training Dataset", "Test Dataset"]
-                ],
+    mapping_df = get_model_dataset_mapping(mapping_file_path)
+    datasets_df = (
+        mapping_df.groupby(["Dataset Name", "Training Dataset", "Test Dataset"])[
+            "Model ID"
+        ]
+        .apply(list)
+        .reset_index()
+    )
+    datasets_df = pd.concat(
+        [
+            datasets_df,
+            mapping_df[mapping_df["Model ID"].isna()][
+                ["Dataset Name", "Training Dataset", "Test Dataset"]
             ],
-            ignore_index=True,
-        )
-        return datasets_df
+        ],
+        ignore_index=True,
+    )
+    return datasets_df
+
+
+def get_datasets():
+    """
+    Get clean overview of all available datasets.
+    
+    Combines data from dynamic catalog and static mappings to provide
+    a user-friendly overview of datasets with documentation links.
+    
+    Returns:
+        pd.DataFrame with columns:
+        - Dataset Name: Name of the dataset
+        - Total Records: Combined training + testing records  
+        - Description: Dataset description from catalog
+        - Documentation: Link to dataset readme
+        - Source: Data source (catalog/static/hybrid)
+    """
+    dm = get_dataset_manager()
+    return dm.get_datasets()
 
 
 def get_dataset_from_model_id(model_id, mapping_file_path=MODEL_DATASET_MAPPING, use_dynamic=True):
