@@ -396,7 +396,7 @@ class DatasetManager:
             
         Returns:
             DataFrame with all cards from the dataset (train and test combined)
-            or None if dataset not found
+            Note: No 'is_train' column - this is a clean dataset view
         """
         # Get dataset URLs
         train_url, test_url = self.get_dataset_urls(dataset_name)
@@ -412,7 +412,6 @@ class DatasetManager:
         if train_url:
             try:
                 train_df = pd.read_csv(train_url)
-                train_df['is_train'] = 1
             except Exception as e:
                 logger.error(f"Error loading training data for {dataset_name}: {e}")
         
@@ -420,11 +419,10 @@ class DatasetManager:
         if test_url:
             try:
                 test_df = pd.read_csv(test_url)
-                test_df['is_train'] = 0
             except Exception as e:
                 logger.error(f"Error loading test data for {dataset_name}: {e}")
         
-        # Combine datasets
+        # Combine datasets without is_train column
         if train_df is not None and test_df is not None:
             data_df = pd.concat([train_df, test_df], ignore_index=True)
         elif train_df is not None:
@@ -436,3 +434,64 @@ class DatasetManager:
             return None
         
         return data_df
+    
+    def get_model_data(self, model_id: int, data_type: str = "all") -> Optional[pd.DataFrame]:
+        """
+        Get training, testing, or all data for a specific model.
+        
+        Args:
+            model_id: Model ID
+            data_type: Type of data to return ("train", "test", or "all")
+            
+        Returns:
+            DataFrame with requested data or None if not found
+            Note: 'is_train' column included only when data_type="all"
+        """
+        if data_type not in ["train", "test", "all"]:
+            raise ValueError("data_type must be 'train', 'test', or 'all'")
+        
+        # Get dataset name for this model
+        dataset_name = self.get_dataset_from_model_id(model_id)
+        if dataset_name is None:
+            logger.warning(f"No dataset found for model ID: {model_id}")
+            return None
+        
+        # Get dataset URLs
+        train_url, test_url = self.get_dataset_urls(dataset_name)
+        
+        train_df = None
+        test_df = None
+        
+        # Load training data if needed
+        if data_type in ["train", "all"] and train_url:
+            try:
+                train_df = pd.read_csv(train_url)
+                if data_type == "all":
+                    train_df['is_train'] = 1
+            except Exception as e:
+                logger.error(f"Error loading training data: {e}")
+        
+        # Load test data if needed
+        if data_type in ["test", "all"] and test_url:
+            try:
+                test_df = pd.read_csv(test_url)
+                if data_type == "all":
+                    test_df['is_train'] = 0
+            except Exception as e:
+                logger.error(f"Error loading test data: {e}")
+        
+        # Return requested data
+        if data_type == "train":
+            return train_df
+        elif data_type == "test":
+            return test_df
+        else:  # data_type == "all"
+            if train_df is not None and test_df is not None:
+                return pd.concat([train_df, test_df], ignore_index=True)
+            elif train_df is not None:
+                return train_df
+            elif test_df is not None:
+                return test_df
+            else:
+                logger.error(f"Failed to load any data for model {model_id}")
+                return None

@@ -1406,7 +1406,7 @@ def get_dataset_cards(dataset_name, use_dynamic=True):
     """
     Get all cards (samples) from a specific dataset by name.
     
-    Similar to get_dataset_from_model_id but accessed by dataset name directly.
+    Returns clean dataset view without 'is_train' column.
     
     Parameters:
         dataset_name (str): Name of the dataset
@@ -1414,13 +1414,52 @@ def get_dataset_cards(dataset_name, use_dynamic=True):
         
     Returns:
         pd.DataFrame or None: Combined train/test dataset with all cards/samples
+        Note: No 'is_train' column - clean dataset view
     """
     if use_dynamic:
         dm = get_dataset_manager()
         return dm.get_dataset_cards(dataset_name)
     else:
-        # Fallback: use get_dataset function which does the same thing
-        return get_dataset(dataset_name, use_dynamic=False)
+        # Fallback: use get_dataset function and remove is_train column
+        df = get_dataset(dataset_name, use_dynamic=False)
+        if df is not None and 'is_train' in df.columns:
+            df = df.drop('is_train', axis=1)
+        return df
+
+
+def get_model_data(model_id, data_type="all", use_dynamic=True):
+    """
+    Get training, testing, or all data for a specific model.
+    
+    Parameters:
+        model_id (int): Model ID
+        data_type (str): Type of data - "train", "test", or "all" (default)
+        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+        
+    Returns:
+        pd.DataFrame or None: Requested model data
+        Note: 'is_train' column included only when data_type="all"
+    """
+    if data_type not in ["train", "test", "all"]:
+        raise ValueError("data_type must be 'train', 'test', or 'all'")
+    
+    if use_dynamic:
+        dm = get_dataset_manager()
+        return dm.get_model_data(model_id, data_type)
+    else:
+        # Fallback: use original function and filter
+        df = get_dataset_from_model_id(model_id, use_dynamic=False)
+        if df is None:
+            return None
+            
+        if data_type == "train":
+            result = df[df['is_train'] == 1].copy()
+            return result.drop('is_train', axis=1)
+        elif data_type == "test":
+            result = df[df['is_train'] == 0].copy()
+            return result.drop('is_train', axis=1)
+        else:  # data_type == "all"
+            return df
 
 
 def get_dataset_info(name, use_dynamic=True):
