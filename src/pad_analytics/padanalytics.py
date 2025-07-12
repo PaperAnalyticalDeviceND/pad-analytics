@@ -1363,7 +1363,11 @@ def get_dataset_from_model_id(model_id, mapping_file_path=MODEL_DATASET_MAPPING,
 
 def get_dataset(name, use_dynamic=True):
     """
-    Get dataset by name.
+    DEPRECATED: This function is deprecated and will be removed in a future version.
+    
+    Use instead:
+    - get_dataset_cards(name) → clean dataset view (no is_train column)
+    - get_model_data(model_id, "all") → dataset with is_train column when needed
     
     Parameters:
         name (str): Dataset name
@@ -1372,6 +1376,14 @@ def get_dataset(name, use_dynamic=True):
     Returns:
         pd.DataFrame or None: Combined train/test dataset or None if not found
     """
+    import warnings
+    warnings.warn(
+        "get_dataset() is deprecated and will be removed in a future version. "
+        "Use get_dataset_cards() for clean dataset view, or "
+        "get_model_data(model_id, 'all') for dataset with train/test distinction.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     if use_dynamic:
         # Use the dataset manager
         dm = get_dataset_manager()
