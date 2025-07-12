@@ -1402,6 +1402,27 @@ def get_dataset(name, use_dynamic=True):
             return None
 
 
+def get_dataset_cards(dataset_name, use_dynamic=True):
+    """
+    Get all cards (samples) from a specific dataset by name.
+    
+    Similar to get_dataset_from_model_id but accessed by dataset name directly.
+    
+    Parameters:
+        dataset_name (str): Name of the dataset
+        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+        
+    Returns:
+        pd.DataFrame or None: Combined train/test dataset with all cards/samples
+    """
+    if use_dynamic:
+        dm = get_dataset_manager()
+        return dm.get_dataset_cards(dataset_name)
+    else:
+        # Fallback: use get_dataset function which does the same thing
+        return get_dataset(dataset_name, use_dynamic=False)
+
+
 def get_dataset_info(name, use_dynamic=True):
     """
     Get comprehensive information about a dataset.

@@ -386,3 +386,53 @@ class DatasetManager:
         if not model_rows.empty:
             return model_rows.iloc[0]['Dataset Name']
         return None
+    
+    def get_dataset_cards(self, dataset_name: str) -> Optional[pd.DataFrame]:
+        """
+        Get all cards (samples) from a specific dataset.
+        
+        Args:
+            dataset_name: Name of the dataset
+            
+        Returns:
+            DataFrame with all cards from the dataset (train and test combined)
+            or None if dataset not found
+        """
+        # Get dataset URLs
+        train_url, test_url = self.get_dataset_urls(dataset_name)
+        
+        if train_url is None and test_url is None:
+            logger.warning(f"No dataset URLs found for: {dataset_name}")
+            return None
+        
+        train_df = None
+        test_df = None
+        
+        # Load training data
+        if train_url:
+            try:
+                train_df = pd.read_csv(train_url)
+                train_df['is_train'] = 1
+            except Exception as e:
+                logger.error(f"Error loading training data for {dataset_name}: {e}")
+        
+        # Load test data
+        if test_url:
+            try:
+                test_df = pd.read_csv(test_url)
+                test_df['is_train'] = 0
+            except Exception as e:
+                logger.error(f"Error loading test data for {dataset_name}: {e}")
+        
+        # Combine datasets
+        if train_df is not None and test_df is not None:
+            data_df = pd.concat([train_df, test_df], ignore_index=True)
+        elif train_df is not None:
+            data_df = train_df
+        elif test_df is not None:
+            data_df = test_df
+        else:
+            logger.error(f"Failed to load any data for dataset: {dataset_name}")
+            return None
+        
+        return data_df
