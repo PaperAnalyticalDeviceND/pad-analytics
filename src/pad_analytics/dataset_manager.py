@@ -370,7 +370,7 @@ class DatasetManager:
         info = self.get_dataset_info(dataset_name)
         return info.get('models', [])
     
-    def get_dataset_from_model_id(self, model_id: int) -> Optional[str]:
+    def get_dataset_name_from_model_id(self, model_id: int) -> Optional[str]:
         """
         Get dataset name used by a specific model.
         
@@ -386,6 +386,27 @@ class DatasetManager:
         if not model_rows.empty:
             return model_rows.iloc[0]['Dataset Name']
         return None
+    
+    def get_dataset_from_model_id(self, model_id: int) -> Optional[str]:
+        """
+        DEPRECATED: Use get_dataset_name_from_model_id() instead.
+        
+        Get dataset name used by a specific model.
+        
+        Args:
+            model_id: Model ID
+            
+        Returns:
+            Dataset name or None if not found
+        """
+        import warnings
+        warnings.warn(
+            "get_dataset_from_model_id() is deprecated and will be removed in a future version. "
+            "Use get_dataset_name_from_model_id() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return self.get_dataset_name_from_model_id(model_id)
     
     def get_dataset_cards(self, dataset_name: str) -> Optional[pd.DataFrame]:
         """
@@ -451,7 +472,7 @@ class DatasetManager:
             raise ValueError("data_type must be 'train', 'test', or 'all'")
         
         # Get dataset name for this model
-        dataset_name = self.get_dataset_from_model_id(model_id)
+        dataset_name = self.get_dataset_name_from_model_id(model_id)
         if dataset_name is None:
             logger.warning(f"No dataset found for model ID: {model_id}")
             return None

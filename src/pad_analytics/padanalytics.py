@@ -1250,9 +1250,38 @@ def get_datasets():
     return dm.get_datasets()
 
 
+def get_dataset_name_from_model_id(model_id, use_dynamic=True):
+    """
+    Get dataset name used by a specific model.
+    
+    Parameters:
+        model_id (int): Model ID
+        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+        
+    Returns:
+        str or None: Dataset name or None if not found
+    """
+    if use_dynamic:
+        dm = get_dataset_manager()
+        return dm.get_dataset_name_from_model_id(model_id)
+    else:
+        # Fallback to CSV lookup
+        mapping_df = get_model_dataset_mapping()
+        model_rows = mapping_df[mapping_df['Model ID'] == model_id]
+        if not model_rows.empty:
+            return model_rows.iloc[0]['Dataset Name']
+        return None
+
+
 def get_dataset_from_model_id(model_id, mapping_file_path=MODEL_DATASET_MAPPING, use_dynamic=True):
     """
-    Get dataset information for a specific model ID.
+    DEPRECATED: This function is deprecated and will be removed in a future version.
+    
+    The function name is misleading - it returns a DataFrame with data, not just the dataset name.
+    
+    Use instead:
+    - get_dataset_name_from_model_id(model_id) → returns dataset name (string)
+    - get_model_data(model_id, "all") → returns dataset data (DataFrame)
     
     Parameters:
         model_id (int): The model ID to look up
@@ -1262,6 +1291,14 @@ def get_dataset_from_model_id(model_id, mapping_file_path=MODEL_DATASET_MAPPING,
     Returns:
         pd.DataFrame or None: Combined train/test dataset or None if not found
     """
+    import warnings
+    warnings.warn(
+        "get_dataset_from_model_id() is deprecated and will be removed in a future version. "
+        "Use get_dataset_name_from_model_id() to get the dataset name, or "
+        "get_model_data(model_id, 'all') to get the dataset data.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     if use_dynamic:
         # Use the dataset manager
         dm = get_dataset_manager()
