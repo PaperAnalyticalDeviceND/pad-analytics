@@ -522,10 +522,10 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
     """
     # Responsive dimensions based on display mode
     if multi_card_mode:
-        # Compact dimensions for multi-card display
-        small_im_width = "200px"    # Smaller but fixed width for consistency
-        small_im_max_width = "200px" 
-        table_width = "280px"        # Much shorter table width
+        # Balanced dimensions for multi-card display
+        small_im_width = "300px"    # Standard image width
+        small_im_max_width = "300px" 
+        table_width = "300px"        # Matching table width
     else:
         # Standard widths for single card display (maintain existing behavior)
         small_im_width = "300px"
@@ -579,7 +579,7 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
             font-size: {11 if multi_card_mode else 14}px;
             border-collapse: collapse;
             width: {table_width};
-            min-width: {280 if multi_card_mode else 500}px;
+            min-width: {300 if multi_card_mode else 500}px;
             table-layout: {'fixed' if multi_card_mode else 'auto'};
         }}
         td, th {{
