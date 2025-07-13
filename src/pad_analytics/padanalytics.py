@@ -136,12 +136,55 @@ def get_data_api(request_url, data_type=""):
 
 # Get card issue types
 def get_card_issues():
+    """Get all cards with reported issues.
+    
+    Retrieves cards from the PAD API that have been flagged with issues,
+    such as image quality problems or processing errors.
+    
+    Returns:
+        pd.DataFrame: DataFrame containing cards with issues. Typical columns include:
+            - id: Card ID
+            - issue_type: Type of issue reported
+            - description: Issue description
+            - Additional card metadata
+            
+    Example:
+        >>> issues = pad.get_card_issues()
+        >>> print(f"Found {len(issues)} cards with issues")
+        Found 15 cards with issues
+        >>> print(issues['issue_type'].value_counts())
+        image_quality    8
+        processing_error 7
+    """
     request_url = f"{API_URL}/cards/issues"
     return get_data_api(request_url, "card issues")
 
 
 # Get projects
 def get_projects():
+    """Get all projects from the PAD API.
+    
+    Retrieves a comprehensive list of all available PAD projects with metadata.
+    Automatically cleans the data by removing columns with all NaN values.
+    
+    Returns:
+        pd.DataFrame: DataFrame containing all projects with columns:
+            - id: Project ID
+            - project_name: Project name
+            - description: Project description
+            - status: Project status
+            - Additional metadata columns (varies by project)
+            
+    Example:
+        >>> projects = get_projects()
+        >>> print(f"Found {len(projects)} projects")
+        Found 25 projects
+        
+        >>> print(projects[['id', 'project_name']].head())
+           id         project_name
+        0   1        Pharmaceutical_QC
+        1   2        Drug_Authentication
+    """
     request_url = f"{API_URL}/projects"
     projects = get_data_api(request_url, "projects")
 
@@ -185,6 +228,40 @@ def get_projects():
 
 # Extended function to get project cards for either a single project ID or multiple project IDs
 def get_project_cards(project_name=None, project_ids=None):
+    """Get all cards (data samples) belonging to specific project(s).
+    
+    Retrieves cards from one or more projects. You can specify either a single
+    project by name or multiple projects by providing a list of project IDs.
+    
+    Args:
+        project_name (str, optional): Name of the project to get cards from.
+        project_ids (list, optional): List of project IDs to get cards from.
+        
+    Returns:
+        pd.DataFrame: Combined DataFrame with cards from specified project(s).
+            Columns include:
+            - id: Card ID
+            - sample_id: Sample identifier
+            - sample_name: Drug/sample name
+            - quantity: Concentration value
+            - url: Image URL
+            - project_id: Associated project ID
+            - Additional metadata
+            
+    Note:
+        You must provide either project_name OR project_ids, not both.
+        
+    Example:
+        >>> # Get cards from a specific project
+        >>> cards = get_project_cards(project_name="Pharmaceutical_QC")
+        >>> print(f"Found {len(cards)} cards in project")
+        Found 1250 cards in project
+        
+        >>> # Get cards from multiple projects
+        >>> cards = get_project_cards(project_ids=[1, 2, 3])
+        >>> print(f"Found {len(cards)} cards across projects")
+        Found 3750 cards across projects
+    """
 
     def _get_project_cards_by_name(name):
         project_id = get_project(name=project_name).id.values[0]
@@ -240,11 +317,67 @@ def get_project_cards(project_name=None, project_ids=None):
 
 
 def get_card_by_id(card_id):
+    """Get a specific card by its ID.
+    
+    Retrieves detailed information about a single PAD card using its unique identifier.
+    
+    Args:
+        card_id (int): The unique card ID to retrieve.
+        
+    Returns:
+        pd.DataFrame: Single-row DataFrame with card information including:
+            - id: Card ID
+            - sample_id: Associated sample ID
+            - sample_name: Drug/sample name
+            - quantity: Concentration value
+            - url: Image URL
+            - project_id: Associated project
+            - Additional metadata
+            
+    Example:
+        >>> card = pad.get_card_by_id(15589)
+        >>> print(f"Card for sample: {card['sample_name'].iloc[0]}")
+        Card for sample: hydroxychloroquine
+        >>> print(f"Concentration: {card['quantity'].iloc[0]}")
+        Concentration: 100
+    """
     request_url = f"{API_URL}/cards/{card_id}"
     return get_data_api(request_url, f"card {card_id}")
 
 
 def get_card(card_id=None, sample_id=None):
+    """Get a card by either card ID or sample ID.
+    
+    Flexible function that retrieves card information using either
+    the card's unique ID or its associated sample ID.
+    
+    Args:
+        card_id (int, optional): The card ID to retrieve.
+        sample_id (int, optional): The sample ID to retrieve card for.
+        
+    Returns:
+        pd.DataFrame: Card information with typical columns:
+            - id: Card ID
+            - sample_id: Sample identifier
+            - sample_name: Drug/sample name
+            - quantity: Concentration
+            - url: Image URL
+            - Additional metadata
+            
+    Raises:
+        ValueError: If neither card_id nor sample_id is provided.
+        
+    Example:
+        >>> # Get by card ID
+        >>> card1 = pad.get_card(card_id=15589)
+        >>> 
+        >>> # Get by sample ID
+        >>> card2 = pad.get_card(sample_id=53787)
+        >>> 
+        >>> # Both should return the same card if they match
+        >>> print(card1['sample_name'].iloc[0])
+        hydroxychloroquine
+    """
     if card_id:
         # Get card by card_id
         return get_card_by_id(card_id)
@@ -257,11 +390,67 @@ def get_card(card_id=None, sample_id=None):
 
 
 def get_project_by_id(project_id):
+    """Get a specific project by its ID.
+    
+    Retrieves detailed information about a single project using its unique
+    identifier from the PAD API.
+    
+    Args:
+        project_id (int): The unique project ID to retrieve.
+        
+    Returns:
+        pd.DataFrame: Single-row DataFrame with detailed project information:
+            - id: Project ID
+            - project_name: Project name
+            - description: Detailed project description
+            - status: Current project status
+            - created_date: Project creation date
+            - Additional project metadata
+            
+    Example:
+        >>> project = get_project_by_id(1)
+        >>> print(f"Project: {project['project_name'].iloc[0]}")
+        Project: Pharmaceutical_QC
+        
+        >>> print(f"Status: {project['status'].iloc[0]}")
+        Status: active
+    """
     request_url = f"{API_URL}/projects/{project_id}"
     return get_data_api(request_url, f"project {project_id}")
 
 
 def get_project_by_name(project_name):
+    """Get a project by its name.
+    
+    Searches for a project by name using case-insensitive matching.
+    Useful when you know the project name but not the ID.
+    
+    Args:
+        project_name (str): The name of the project to find.
+        
+    Returns:
+        pd.DataFrame: DataFrame with matching project(s). Will be empty if
+            no project with that name is found. Columns include:
+            - id: Project ID
+            - project_name: Project name (exact match)
+            - description: Project description
+            - status: Project status
+            - Additional metadata
+            
+    Note:
+        Search is case-insensitive ("QC" matches "qc", "Qc", etc.)
+        
+    Example:
+        >>> project = get_project_by_name("Pharmaceutical_QC")
+        >>> if not project.empty:
+        ...     print(f"Found project ID: {project['id'].iloc[0]}")
+        Found project ID: 1
+        
+        >>> # Case-insensitive search
+        >>> project = get_project_by_name("pharmaceutical_qc")
+        >>> print(len(project))  # Should find the same project
+        1
+    """
     projects = get_projects()
     project = projects[
         projects["project_name"].apply(lambda x: x.lower() == project_name.lower())
@@ -270,6 +459,41 @@ def get_project_by_name(project_name):
 
 
 def get_project(id=None, name=None):
+    """Get a project by ID or name (flexible interface).
+    
+    Convenience function that allows retrieving a project using either its
+    ID or name. Automatically routes to the appropriate specific function.
+    
+    Args:
+        id (int, optional): The project ID to retrieve.
+        name (str, optional): The project name to search for.
+        
+    Returns:
+        pd.DataFrame: Project information. Format depends on lookup method:
+            - By ID: Single project with detailed information
+            - By name: Matching project(s) from filtered list
+            
+    Raises:
+        ValueError: If neither id nor name is provided.
+        
+    Note:
+        You must provide exactly one parameter (either id OR name).
+        
+    Example:
+        >>> # Get by ID
+        >>> project = get_project(id=1)
+        >>> print(project['project_name'].iloc[0])
+        Pharmaceutical_QC
+        
+        >>> # Get by name
+        >>> project = get_project(name="Pharmaceutical_QC")
+        >>> print(project['id'].iloc[0])
+        1
+        
+        >>> # Error case
+        >>> project = get_project()  # Raises ValueError
+        ValueError: You must provide either project_id or project_name
+    """
     if id:
         # Get project by ID
         return get_project_by_id(id)
@@ -563,18 +787,39 @@ def standardize_names(name):
 
 # Extended function to get project cards for either a single project ID or multiple project IDs
 def get_card_by_sample_id(sample_id):
-    """
-    Fetches card data for a given sample_id and returns it as a pandas DataFrame
-
-    Parameters:
-    -----------
-    sample_id : int
-        The sample ID to fetch cards for
-
+    """Get card(s) associated with a specific sample ID.
+    
+    Retrieves all cards that are associated with the given sample ID using
+    the PAD API v3. Multiple cards may exist for a single sample if it was 
+    processed multiple times or under different conditions.
+    
+    Args:
+        sample_id (int): The sample ID to search for.
+        
     Returns:
-    --------
-    pandas.DataFrame
-        DataFrame containing the card information with specified columns
+        pd.DataFrame: DataFrame with matching cards. Columns include:
+            - id: Card ID
+            - sample_id: Sample identifier (will match input)
+            - sample_name: Drug/sample name
+            - quantity: Concentration
+            - url: Image URL
+            - project_id: Associated project
+            - Additional metadata from nested API structure
+            
+    Raises:
+        Exception: If API request fails or returns error.
+        
+    Example:
+        >>> cards = pad.get_card_by_sample_id(53787)
+        >>> print(f"Found {len(cards)} cards for sample 53787")
+        Found 1 cards for sample 53787
+        >>> print(cards[['id', 'sample_name', 'quantity']])
+            id         sample_name  quantity
+        0  15589  hydroxychloroquine       100
+        
+    Note:
+        This function uses PAD API v3 endpoint which provides more detailed
+        card information including nested project and sample data.
     """
 
     # Make API request
@@ -771,11 +1016,63 @@ def show_cards(card_ids):
 
 
 def get_models():
+    """Get all available neural network models from the PAD API.
+    
+    Retrieves a comprehensive list of all available machine learning models
+    that can be used for PAD image analysis and predictions.
+    
+    Returns:
+        pd.DataFrame: DataFrame containing all available models with columns:
+            - id: Model ID (used for predictions)
+            - name: Model name/identifier
+            - description: Model description
+            - type: Model type (classification, regression, etc.)
+            - status: Model status (active, deprecated, etc.)
+            - Additional model metadata
+            
+    Example:
+        >>> models = get_models()
+        >>> print(f"Found {len(models)} available models")
+        Found 4 available models
+        
+        >>> print(models[['id', 'name']].head())
+           id                    name
+        0  16    24fhiNN1classifyAPI
+        1  17        24fhiNN1concAPI
+        2  18         24fhiPLS1conc
+        3  19    24fhiNN1concAPIv2
+    """
     request_url = f"{API_URL}/neural-networks"
     return get_data_api(request_url, "card issues")
 
 
 def get_model(nn_id):
+    """Get detailed information about a specific neural network model.
+    
+    Retrieves comprehensive metadata and configuration details for a
+    specific machine learning model by its ID.
+    
+    Args:
+        nn_id (int): The neural network model ID to retrieve.
+        
+    Returns:
+        pd.DataFrame: Single-row DataFrame with detailed model information:
+            - id: Model ID
+            - name: Model name/identifier
+            - description: Detailed model description
+            - architecture: Model architecture details
+            - performance_metrics: Model performance data
+            - training_info: Training configuration
+            - Additional technical metadata
+            
+    Example:
+        >>> model = get_model(16)
+        >>> print(f"Model: {model['name'].iloc[0]}")
+        Model: 24fhiNN1classifyAPI
+        
+        >>> print(f"Type: Classification model for drug identification")
+        Type: Classification model for drug identification
+    """
     request_url = f"{API_URL}/neural-networks/{nn_id}"
     return get_data_api(request_url, f"neural_network {nn_id}")
 
@@ -1171,15 +1468,25 @@ def apply_predictions_to_dataframe(dataset_df, model_id):
 
 
 def get_model_dataset_mapping(mapping_file_path=MODEL_DATASET_MAPPING):
-    """
-    Get the model dataset mapping from the CSV file.
+    """Get the model-dataset mapping from the CSV file.
     
-    Parameters:
-        mapping_file_path (str): Path to the mapping CSV file
+    Loads the static mapping file that associates machine learning models
+    with their corresponding training and test datasets. This mapping is
+    essential for data loading and model evaluation workflows.
+    
+    Args:
+        mapping_file_path (str, optional): Path to the mapping CSV file.
+            Defaults to package-included mapping file.
         
     Returns:
-        pd.DataFrame: The mapping dataframe
-        
+        pd.DataFrame: Mapping DataFrame with columns:
+            - Model ID: Unique model identifier
+            - Model Name: Human-readable model name
+            - Dataset Name: Associated dataset name
+            - Training Dataset: URL to training data
+            - Test Dataset: URL to test data
+            - Endpoint URL: API endpoint for predictions
+            
     Raises:
         FileNotFoundError: If the mapping file cannot be found
     """
@@ -1200,16 +1507,33 @@ def get_model_dataset_mapping(mapping_file_path=MODEL_DATASET_MAPPING):
 
 
 def get_dataset_list(mapping_file_path=MODEL_DATASET_MAPPING):
-    """
-    Get list of available datasets (original function for backward compatibility).
+    """Get list of available datasets (legacy function for backward compatibility).
     
-    Returns DataFrame with Training Dataset, Test Dataset, and Model ID columns.
+    LEGACY FUNCTION: This function provides the original static dataset list.
+    For enhanced functionality, use get_datasets() instead which includes
+    dynamic catalog data and rich metadata.
     
-    Parameters:
-        mapping_file_path (str): Path to the mapping CSV file
+    Args:
+        mapping_file_path (str, optional): Path to the CSV mapping file.
+            Defaults to package-included mapping file.
         
     Returns:
-        pd.DataFrame: DataFrame with original structure for backward compatibility
+        pd.DataFrame: DataFrame with static dataset mappings including:
+            - Dataset Name: Name of the dataset
+            - Training Dataset: URL to training data
+            - Test Dataset: URL to test data 
+            - Model ID: List of associated model identifiers
+            
+    Note:
+        Consider using get_datasets() for a more comprehensive dataset overview
+        with catalog metadata and documentation links.
+        
+    Example:
+        >>> datasets = get_dataset_list()
+        >>> print(datasets[['Dataset Name', 'Model ID']].head())
+           Dataset Name                              Model ID
+        0  FHI2020_Stratified_Sampling              [16, 17, 18]
+        1  Another_Dataset                          [19]
     """
     mapping_df = get_model_dataset_mapping(mapping_file_path)
     datasets_df = (
@@ -1293,22 +1617,32 @@ def get_dataset_name_from_model_id(model_id, use_dynamic=True):
 
 
 def get_dataset_from_model_id(model_id, mapping_file_path=MODEL_DATASET_MAPPING, use_dynamic=True):
-    """
-    DEPRECATED: This function is deprecated and will be removed in a future version.
+    """Get dataset data for a specific model (DEPRECATED).
     
-    The function name is misleading - it returns a DataFrame with data, not just the dataset name.
+    .. deprecated:: 0.2.0
+        This function is deprecated and will be removed in a future version.
+        The function name is misleading - it returns DataFrame data, not just the dataset name.
     
-    Use instead:
-    - get_dataset_name_from_model_id(model_id) → returns dataset name (string)
-    - get_model_data(model_id, "all") → returns dataset data (DataFrame)
-    
-    Parameters:
-        model_id (int): The model ID to look up
-        mapping_file_path (str): Path to the mapping CSV file
-        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+    Args:
+        model_id (int): The model ID to get dataset for.
+        mapping_file_path (str, optional): Path to mapping file.
+        use_dynamic (bool, optional): Whether to use dynamic dataset manager.
         
     Returns:
-        pd.DataFrame or None: Combined train/test dataset or None if not found
+        pd.DataFrame or None: Dataset with is_train column indicating train/test split,
+            or None if model not found.
+        
+    Recommended alternatives:
+        - get_dataset_name_from_model_id(model_id): Returns dataset name (string)
+        - get_model_data(model_id, "all"): Returns dataset data (DataFrame)
+        
+    Example:
+        >>> # DEPRECATED usage
+        >>> data = get_dataset_from_model_id(16)
+        >>> 
+        >>> # RECOMMENDED alternatives
+        >>> name = get_dataset_name_from_model_id(16)  # Just the name
+        >>> data = get_model_data(16, "all")  # All data with is_train column
     """
     import warnings
     warnings.warn(
@@ -1381,19 +1715,30 @@ def get_dataset_from_model_id(model_id, mapping_file_path=MODEL_DATASET_MAPPING,
 
 
 def get_dataset(name, use_dynamic=True):
-    """
-    DEPRECATED: This function is deprecated and will be removed in a future version.
+    """Load a dataset by name (DEPRECATED).
     
-    Use instead:
-    - get_dataset_cards(name) → clean dataset view (no is_train column)
-    - get_model_data(model_id, "all") → dataset with is_train column when needed
-    
-    Parameters:
-        name (str): Dataset name
-        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+    .. deprecated:: 0.2.0
+        This function is deprecated and will be removed in a future version.
+        
+    Args:
+        name (str): Name of the dataset to load.
+        use_dynamic (bool, optional): Whether to use dynamic dataset manager.
+            Defaults to True.
         
     Returns:
-        pd.DataFrame or None: Combined train/test dataset or None if not found
+        pd.DataFrame or None: Dataset with is_train column, or None if not found.
+        
+    Recommended alternatives:
+        - get_dataset_cards(name): Clean dataset view without is_train column
+        - get_model_data(model_id, "all"): Dataset with is_train column for specific model
+        
+    Example:
+        >>> # DEPRECATED usage
+        >>> data = get_dataset("FHI2020_Stratified_Sampling")
+        >>> 
+        >>> # RECOMMENDED alternatives
+        >>> cards = get_dataset_cards("FHI2020_Stratified_Sampling")  # Clean view
+        >>> model_data = get_model_data(16, "all")  # Model-specific with is_train
     """
     import warnings
     warnings.warn(
@@ -1473,34 +1818,39 @@ def get_dataset(name, use_dynamic=True):
 def get_dataset_cards(dataset_name, use_dynamic=True):
     """Get all cards (samples) from a specific dataset by name.
     
-    Returns a clean dataset view without implementation details.
-    This is the recommended way to access dataset contents.
+    Returns a clean dataset view without implementation details like the
+    'is_train' column. This is the recommended way to access dataset contents
+    when you need all samples regardless of train/test split.
     
     Args:
-        dataset_name (str): Name of the dataset (e.g., "FHI2020_Stratified_Sampling").
-        use_dynamic (bool): Whether to use DatasetManager (True) or 
-            static functions only (False). Defaults to True.
+        dataset_name (str): Name of the dataset to retrieve cards from
+            (e.g., "FHI2020_Stratified_Sampling").
+        use_dynamic (bool, optional): Whether to use the dynamic dataset manager.
+            Defaults to True for enhanced functionality.
         
     Returns:
-        pd.DataFrame or None: Combined train/test dataset or None if not found.
-            Typical columns include:
+        pd.DataFrame or None: Dataset with all cards/samples, or None if
+            dataset not found. Columns typically include:
             - id: Card ID
             - sample_id: Sample identifier
             - sample_name: Drug/sample name  
-            - quantity: Concentration
+            - quantity: Concentration/amount
             - url: Image URL
-            - Additional metadata
+            - Additional metadata columns
             
     Note:
-        No 'is_train' column is included for a clean view. Use get_model_data()
-        if you need train/test distinction.
+        The 'is_train' column is NOT included for a clean view.
+        Use get_model_data() if you need train/test distinction.
         
     Example:
-        >>> cards = pad.get_dataset_cards("FHI2020_Stratified_Sampling")
-        >>> print(f"Dataset contains {len(cards)} cards")
-        Dataset contains 8001 cards
-        >>> print(cards.columns.tolist())
-        ['id', 'sample_id', 'sample_name', 'quantity', ...]
+        >>> cards = get_dataset_cards("FHI2020_Stratified_Sampling")
+        >>> print(f"Dataset contains {len(cards)} samples")
+        Dataset contains 8001 samples
+        
+        >>> print(cards[['sample_name', 'quantity']].head())
+           sample_name  quantity
+        0    Aspirin        50.0
+        1    Ibuprofen     100.0
     """
     if use_dynamic:
         dm = get_dataset_manager()
@@ -1516,12 +1866,13 @@ def get_dataset_cards(dataset_name, use_dynamic=True):
 def get_model_data(model_id, data_type="all", use_dynamic=True):
     """Get training, testing, or all data for a specific model.
     
-    Flexible function to retrieve model-specific datasets with control
-    over train/test split.
+    Retrieves the dataset used by a specific model with flexible options
+    for train/test data selection. Uses the hybrid dataset management
+    system to find and load the appropriate data.
     
     Args:
         model_id (int): The model ID to retrieve data for.
-        data_type (str): Type of data to return:
+        data_type (str, optional): Type of data to return. Options:
             - "train": Training data only (no is_train column)
             - "test": Test data only (no is_train column)
             - "all": Combined data (includes is_train column)
@@ -1576,33 +1927,36 @@ def get_model_data(model_id, data_type="all", use_dynamic=True):
 def get_dataset_info(name, use_dynamic=True):
     """Get comprehensive information about a dataset.
     
-    Provides rich metadata including catalog information, model associations,
-    and dataset URLs.
+    Provides rich metadata by combining information from the dynamic catalog
+    and static model mappings. Includes descriptions, record counts, model
+    associations, and dataset URLs.
     
     Args:
-        name (str): Dataset name to look up.
-        use_dynamic (bool): Whether to use DatasetManager for rich metadata (True)
-            or basic static info only (False). Defaults to True.
+        name (str): Name of the dataset to get information for.
+        use_dynamic (bool, optional): Whether to use the dynamic dataset manager.
+            Defaults to True for enhanced metadata.
         
     Returns:
-        dict: Dataset information including:
+        dict: Comprehensive dataset information including:
             - name (str): Dataset name
-            - source (str): "catalog", "static", or "hybrid"
-            - description (str): Dataset description (if available)
+            - source (str): Data source ("catalog", "static", or "hybrid")
+            - description (str): Dataset description
             - record_count (int): Total number of records
-            - models (list): Models using this dataset
+            - models (list): List of models using this dataset
             - training_dataset_url (str): URL to training data
             - test_dataset_url (str): URL to test data
-            - Additional catalog metadata (when use_dynamic=True)
+            - Additional catalog metadata when available
             
     Example:
-        >>> info = pad.get_dataset_info("FHI2020_Stratified_Sampling")
+        >>> info = get_dataset_info("FHI2020_Stratified_Sampling")
         >>> print(f"Dataset: {info['name']}")
         Dataset: FHI2020_Stratified_Sampling
+        
         >>> print(f"Records: {info['record_count']}")
         Records: 8001
+        
         >>> print(f"Used by {len(info['models'])} models")
-        Used by 4 models
+        Used by 3 models
     """
     if use_dynamic:
         dm = get_dataset_manager()
