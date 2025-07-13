@@ -1631,7 +1631,7 @@ def show_prediction(card_id=None, sample_id=None, model_id=None):
         None: Displays the prediction widget in the Jupyter notebook with:
             - Card image and standard metadata
             - Prediction result formatted as:
-                * Neural Network: "drug_name (confidence%)" e.g., "aspirin (95.3%)"
+                * Neural Network: "drug_name (confidence=XX.X%)" e.g., "aspirin (confidence=95.3%)"
                 * PLS models: concentration with 2 decimal places e.g., "73.21"
             - Model file name and type information
             
@@ -1655,7 +1655,7 @@ def show_prediction(card_id=None, sample_id=None, model_id=None):
         
         >>> # Widget shows:
         >>> # - All standard card metadata
-        >>> # - Prediction: "aspirin (95.3%)" for NN or "75.32" for PLS
+        >>> # - Prediction: "aspirin (confidence=95.3%)" for NN or "75.32" for PLS
         >>> # - Model File: "24fhiNN1classifyAPI.tflite"
         >>> # - Model Type: "tf_lite" or "pls"
     """
@@ -1717,8 +1717,8 @@ def show_prediction(card_id=None, sample_id=None, model_id=None):
     elif isinstance(prediction, tuple) and len(prediction) == 3:
         # Neural Network model - extract drug name and confidence
         drug_name, confidence, energy = prediction
-        # Format as "drug_name (confidence%)"
-        prediction = f"{drug_name} ({float(confidence)*100:.1f}%)"
+        # Format as "drug_name (confidence=XX.X%)"
+        prediction = f"{drug_name} (confidence={float(confidence)*100:.1f}%)"
 
     # Example of how to use `safe_get` for extracting fields
     data = {
