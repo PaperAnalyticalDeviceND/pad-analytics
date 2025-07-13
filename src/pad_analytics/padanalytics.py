@@ -512,28 +512,48 @@ def load_image_from_url(image_url):
 
 
 # Function to create a widget that shows the image and its related data
-def create_image_widget_with_info(image_url, data_df):
-
-    small_im_width = 300
-    full_im_width = 800
+def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
+    """Create responsive image widget that adapts to single or multi-card display.
+    
+    Args:
+        image_url (str): URL to the PAD image
+        data_df (pd.DataFrame): Card metadata
+        multi_card_mode (bool): If True, uses responsive layout for multi-card display
+    """
+    # Responsive dimensions based on display mode
+    if multi_card_mode:
+        # Balanced dimensions for multi-card display
+        small_im_width = "300px"    # Standard image width
+        small_im_max_width = "300px" 
+        table_width = "350px"        # Wider table for better content display
+    else:
+        # Standard widths for single card display (maintain existing behavior)
+        small_im_width = "300px"
+        small_im_max_width = "300px"
+        table_width = "500px"
+    
+    full_im_width = 800  # Always use fixed width for zoom overlay
     background_color_field = "#5c6e62"
     background_color_value = "#f9f9f9"
     image_id = data_df.ID.values[0]
 
-    # Create an HTML widget with JavaScript for image zoom on click
+    # Create compact HTML widget with JavaScript for image zoom on click
+    image_style = f"width:{small_im_width}; height:auto; cursor: pointer; display:block;"
+    
     zoomable_image_html = f"""
-    <div id="imageContainer_{image_id}">    
-      <img id="zoomableImage_{image_id}" src="{image_url}" alt="Image" style="width:{small_im_width}px; cursor: pointer;" 
+    <div id="imageContainer_{image_id}" style="display: flex; justify-content: center; align-items: center;">    
+      <img id="zoomableImage_{image_id}" src="{image_url}" alt="Image" style="{image_style}" 
           onclick="
               var img = document.getElementById('zoomableImage_{image_id}');
               var overlay = document.getElementById('overlay_{image_id}');
-              if (img.style.width == '{small_im_width}px') {{
+              var currentWidth = img.style.width;
+              if (currentWidth === '{small_im_width}') {{
                   img.style.width = '{full_im_width}px';  // Full size image width
                   overlay.style.display = 'flex';  // Show overlay
                   overlay.style.alignItems = 'flex-start';  // Align the image at the top
                   overlay.appendChild(img);  // Move image to overlay
               }} else {{
-                  img.style.width = '{small_im_width}px';  // Small size image width
+                  img.style.width = '{small_im_width}';  // Restore compact width
                   document.getElementById('imageContainer_{image_id}').appendChild(img);  // Move image back to grid
                   overlay.style.display = 'none';  // Hide overlay
               }}
@@ -551,30 +571,37 @@ def create_image_widget_with_info(image_url, data_df):
 
     # Arrange the clickable image in a vertical box (this will be the first column)
     image_column = widgets.VBox([img_widget])
-    # Create a DataFrame-like table using HTML with field names as row headers
+    # Create responsive DataFrame-like table using HTML with field names as row headers
     table_style = f"""
     <style>
         table {{
             font-family: sans-serif;
-            font-size: 14px;
+            font-size: {13 if multi_card_mode else 14}px;
             border-collapse: collapse;
-            width: 500px;
+            width: {table_width};
+            min-width: {350 if multi_card_mode else 500}px;
+            table-layout: {'fixed' if multi_card_mode else 'auto'};
         }}
         td, th {{
             border: 1px solid #dddddd;
             text-align: left;
-            padding: 4px;
+            padding: {2 if multi_card_mode else 4}px;
+            word-wrap: break-word;
+            overflow: hidden;
         }}
 
         th {{
             background-color: {background_color_field};
             color: white;
             text-align: left;
-            width: 120px;
-            padding-left: 20px;
+            width: {80 if multi_card_mode else 120}px;
+            padding-left: {8 if multi_card_mode else 20}px;
+            font-size: {12 if multi_card_mode else 14}px;
         }}
         td{{
-            padding-left: 10px;
+            padding-left: {6 if multi_card_mode else 10}px;
+            max-width: {180 if multi_card_mode else 300}px;
+            text-overflow: ellipsis;
         }}
         tr:nth-child(even) {{
             background-color: {background_color_value};
@@ -602,8 +629,16 @@ def create_image_widget_with_info(image_url, data_df):
     # Create HTML widget for the table
     info_table = widgets.HTML(table_html)
 
-    # Arrange the two columns (image and info) side by side in a horizontal box
-    columns = widgets.HBox([image_column, info_table])
+    # Arrange the two columns (image and info) side by side with responsive layout
+    if multi_card_mode:
+        # Use flexible layout for multi-card mode
+        columns = widgets.HBox([image_column, info_table], 
+                              layout=widgets.Layout(width='100%', 
+                                                   display='flex',
+                                                   flex_flow='row wrap'))
+    else:
+        # Use standard layout for single card mode
+        columns = widgets.HBox([image_column, info_table])
 
     # Display the ID label above the columns
     return widgets.VBox([id_label, columns])
@@ -639,10 +674,6 @@ def show_card(card_id=None, sample_id=None):
         >>> # Display card by card ID
         >>> show_card(card_id=47918)
         # Shows interactive widget with card image and metadata table
-        
-        >>> # Display card by sample ID (single card)
-        >>> show_card(sample_id=12345)
-        # Shows single card widget for sample 12345
         
         >>> # Display cards by sample ID (multiple cards)
         >>> show_card(sample_id=67890)
@@ -1041,51 +1072,94 @@ def show_cards_from_df(cards_df):
                 "https://via.placeholder.com/300"  # Use placeholder if no image URL
             )
 
-        # Create the widget for this card and add it to the list
-        card_widget = create_image_widget_with_info(image_url, data_df)
+        # Create the widget for this card with multi-card mode enabled
+        card_widget = create_image_widget_with_info(image_url, data_df, multi_card_mode=True)
         card_widgets.append(card_widget)
 
-    # Create a layout to display the cards in a grid-like format
-    # Display the widgets in rows of two or three cards per row
+    # Create a responsive layout to display the cards
+    # Use responsive grid that adapts to available space
     max_cards_per_row = 2  # Adjust how many cards per row
     card_rows = [
-        widgets.HBox(card_widgets[i : i + max_cards_per_row])
+        widgets.HBox(card_widgets[i : i + max_cards_per_row],
+                    layout=widgets.Layout(width='100%', 
+                                         display='flex',
+                                         flex_flow='row wrap',
+                                         justify_content='space-around'))
         for i in range(0, len(card_widgets), max_cards_per_row)
     ]
 
-    # Display the rows of widgets vertically
-    display(widgets.VBox(card_rows))
+    # Display the rows of widgets vertically with responsive container
+    display(widgets.VBox(card_rows, 
+                        layout=widgets.Layout(width='100%',
+                                             overflow='hidden')))
 
 
-def show_cards(card_ids):
-    """Display multiple PAD cards from a list of card IDs.
+def show_cards(card_ids=None, sample_ids=None):
+    """Display multiple PAD cards from a list of card IDs or sample IDs.
     
     Fetches card data for each ID via API calls and creates individual card
-    widgets for visualization. Handles missing or invalid card IDs gracefully
-    with error messages.
+    widgets for visualization. Handles missing or invalid IDs gracefully
+    with error messages. Supports both direct card ID access and sample-based lookup.
     
     Args:
-        card_ids (list): List of card IDs (integers) to display.
+        card_ids (list, optional): List of card IDs (integers) to display.
+        sample_ids (list, optional): List of sample IDs (integers) to find and display cards for.
         
     Returns:
-        None: Displays card widgets sequentially in the Jupyter notebook.
-        Shows error messages for any invalid or missing card IDs.
+        None: Displays card widgets in a responsive grid layout.
+        Shows error messages for any invalid or missing IDs.
+        
+    Raises:
+        ValueError: If neither card_ids nor sample_ids is provided, or if both are provided.
         
     Note:
         Less efficient than show_cards_from_df() due to individual API calls.
         Use show_cards_from_df() when you already have the card data loaded.
+        You must provide exactly one parameter (either card_ids OR sample_ids).
+        When using sample_ids, multiple cards per sample will all be displayed.
         
     Example:
-        >>> # Display specific cards by ID
-        >>> card_list = [47918, 47919, 47920]
-        >>> show_cards(card_list)
+        >>> # Display specific cards by card ID
+        >>> show_cards(card_ids=[47918, 47919, 47920])
         # Shows individual widgets for each valid card
         
-        >>> # Display cards from a filtered search
-        >>> aspirin_cards = get_card_by_sample_id("aspirin_sample_001")
-        >>> show_cards(aspirin_cards['id'].tolist())
-        # Shows all cards for aspirin samples
+        >>> # Display cards by sample IDs
+        >>> show_cards(sample_ids=[52677, 52678, 52679])
+        # Shows all cards from these samples (1 or more cards per sample)
+        
+        >>> # Research workflow example
+        >>> aspirin_samples = [52677, 52678, 52679]
+        >>> show_cards(sample_ids=aspirin_samples)
+        # Shows all cards for aspirin study samples
     """
+    # Validate parameters
+    if card_ids is None and sample_ids is None:
+        raise ValueError("You must provide either card_ids or sample_ids")
+    if card_ids is not None and sample_ids is not None:
+        raise ValueError("You cannot provide both card_ids and sample_ids. Choose one.")
+    
+    # Convert sample_ids to card_ids if needed
+    if sample_ids is not None:
+        print(f"🔍 Looking up cards for {len(sample_ids)} samples...")
+        card_ids = []
+        for sample_id in sample_ids:
+            # Get all cards for this sample
+            sample_cards = get_card(sample_id=sample_id)
+            if sample_cards is not None and not sample_cards.empty:
+                # Add all card IDs from this sample
+                sample_card_ids = sample_cards['id'].tolist()
+                card_ids.extend(sample_card_ids)
+                if len(sample_card_ids) > 1:
+                    print(f"  📋 Sample {sample_id}: found {len(sample_card_ids)} cards")
+            else:
+                print(f"  ⚠️ Sample {sample_id}: no cards found")
+        
+        if not card_ids:
+            print("❌ No cards found for any of the provided sample IDs")
+            return
+        
+        print(f"✅ Total cards to display: {len(card_ids)}")
+        print()  # Add blank line for readability
     card_widgets = []
 
     # Iterate through each card in the DataFrame
@@ -1102,7 +1176,7 @@ def show_cards(card_ids):
                 HTML(
                     f"""
             <div style="font-family: 'Courier New', monospace; color: darkred;">
-                &#128308; No data was retrieved for the provided card id lis {card_ids}</strong>.
+                &#128308; No data was retrieved for card ID {card_id}.
             </div>
             """
                 )
@@ -1146,20 +1220,26 @@ def show_cards(card_ids):
             print(f"No valid image found for card {card_id}")
             image_url = "https://via.placeholder.com/300"  # Placeholder if no image
 
-        # Create the widget for the current card and append it to the list
-        card_widget = create_image_widget_with_info(image_url, data_df)
+        # Create the widget for the current card with multi-card mode enabled
+        card_widget = create_image_widget_with_info(image_url, data_df, multi_card_mode=True)
         card_widgets.append(card_widget)
 
-    # Create a layout to display the cards in a grid-like format
-    # Display the widgets in rows of two or three cards per row
-    max_cards_per_row = 3  # Set how many cards you want per row
+    # Create a responsive layout to display the cards
+    # Use 2 cards per row to match show_cards_from_df() behavior
+    max_cards_per_row = 2  # Adjusted to fit 650px cards side-by-side
     card_rows = [
-        widgets.HBox(card_widgets[i : i + max_cards_per_row])
+        widgets.HBox(card_widgets[i : i + max_cards_per_row],
+                    layout=widgets.Layout(width='100%', 
+                                         display='flex',
+                                         flex_flow='row wrap',
+                                         justify_content='space-around'))
         for i in range(0, len(card_widgets), max_cards_per_row)
     ]
 
-    # Display the rows vertically
-    display(widgets.VBox(card_rows))
+    # Display the rows of widgets vertically with responsive container
+    display(widgets.VBox(card_rows, 
+                        layout=widgets.Layout(width='100%',
+                                             overflow='hidden')))
 
 
 def get_models():
@@ -1473,15 +1553,17 @@ def predict(card_id, model_id, actual_api=None, verbose=False):
     return actual_label, prediction
 
 
-def show_prediction(card_id, model_id):
+def show_prediction(card_id=None, sample_id=None, model_id=None):
     """Display a PAD card with ML model prediction results.
     
     Shows the card image and metadata alongside machine learning prediction
     results. Includes model information and formatted prediction output for
-    analysis and validation workflows.
+    analysis and validation workflows. Can identify card by either card_id
+    or sample_id.
     
     Args:
-        card_id (int): The unique card ID to analyze.
+        card_id (int, optional): The unique card ID to analyze.
+        sample_id (int, optional): The sample ID to find and analyze the card for.
         model_id (int): The model ID to use for prediction (e.g., 16 for
             classification, 18 for concentration prediction).
             
@@ -1491,18 +1573,23 @@ def show_prediction(card_id, model_id):
             - Prediction result (formatted to 2 decimal places for numeric)
             - Model file name and type information
             
+    Raises:
+        ValueError: If neither card_id nor sample_id is provided, or if both are provided.
+        ValueError: If model_id is not provided.
+            
     Note:
-        Requires Jupyter notebook environment. Combines card visualization
-        with ML prediction for research and validation workflows.
+        Requires Jupyter notebook environment. You must provide exactly one of
+        card_id OR sample_id. If sample_id returns multiple cards, only the 
+        first card will be analyzed.
         
     Example:
-        >>> # Show classification prediction
+        >>> # Show prediction by card ID
         >>> show_prediction(card_id=19208, model_id=16)
         # Displays card with drug classification result
         
-        >>> # Show concentration prediction  
-        >>> show_prediction(card_id=19208, model_id=18)
-        # Displays card with concentration prediction (e.g., "75.32")
+        >>> # Show prediction by sample ID
+        >>> show_prediction(sample_id=52677, model_id=18)
+        # Finds card for sample and shows concentration prediction
         
         >>> # Widget shows:
         >>> # - All standard card metadata
@@ -1510,10 +1597,36 @@ def show_prediction(card_id, model_id):
         >>> # - Model File: "24fhiNN1classifyAPI.tflite"
         >>> # - Model Type: "classification" or "regression"
     """
-    info = get_card(card_id)
+    # Validate parameters
+    if card_id is None and sample_id is None:
+        raise ValueError("You must provide either card_id or sample_id")
+    if card_id is not None and sample_id is not None:
+        raise ValueError("You cannot provide both card_id and sample_id. Choose one.")
+    if model_id is None:
+        raise ValueError("You must provide model_id for prediction")
+    
+    # Get card information using the appropriate parameter
+    if card_id is not None:
+        info = get_card(card_id=card_id)
+        display_id = card_id
+    else:  # sample_id is not None
+        info = get_card(sample_id=sample_id)
+        # Handle multiple cards for the same sample_id
+        if info is not None and not info.empty:
+            if len(info) > 1:
+                print(f"⚠️ Sample {sample_id} has {len(info)} cards. Using the first one (Card ID: {info['id'].iloc[0]}) for prediction.")
+            display_id = info['id'].iloc[0]
+            card_id = display_id  # Set card_id for prediction call
+            # Use only the first card's data
+            info = info.iloc[[0]]
+        else:
+            display_id = f"sample_{sample_id}"
+            print(f"Failed to retrieve data for sample {sample_id}")
+            return
 
-    if info is None:
-        print(f"Failed to retrieve data for card {card_id}")
+    if info is None or info.empty:
+        identifier = card_id if card_id is not None else f"sample {sample_id}"
+        print(f"Failed to retrieve data for {identifier}")
         return
 
     # Data validation: check if essential fields exist in the API response
@@ -1542,7 +1655,7 @@ def show_prediction(card_id, model_id):
 
     # Example of how to use `safe_get` for extracting fields
     data = {
-        "ID": [card_id],
+        "ID": [display_id],
         "Sample ID": [safe_get("sample_id")],
         "Sample Name": [safe_get("sample_name")],
         "Quantity": [safe_get("quantity")],
@@ -1567,7 +1680,8 @@ def show_prediction(card_id, model_id):
             "https://pad.crc.nd.edu/" + info["processed_file_location"].values[0]
         )
     except (KeyError, IndexError):
-        print(f"No valid image found for card {card_id}")
+        identifier = card_id if card_id is not None else f"sample {sample_id}"
+        print(f"No valid image found for {identifier}")
         image_url = "https://via.placeholder.com/300"  # Default placeholder image
 
     # Create the widget for the image and its info
