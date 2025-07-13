@@ -1094,35 +1094,72 @@ def show_cards_from_df(cards_df):
                                              overflow='hidden')))
 
 
-def show_cards(card_ids):
-    """Display multiple PAD cards from a list of card IDs.
+def show_cards(card_ids=None, sample_ids=None):
+    """Display multiple PAD cards from a list of card IDs or sample IDs.
     
     Fetches card data for each ID via API calls and creates individual card
-    widgets for visualization. Handles missing or invalid card IDs gracefully
-    with error messages.
+    widgets for visualization. Handles missing or invalid IDs gracefully
+    with error messages. Supports both direct card ID access and sample-based lookup.
     
     Args:
-        card_ids (list): List of card IDs (integers) to display.
+        card_ids (list, optional): List of card IDs (integers) to display.
+        sample_ids (list, optional): List of sample IDs (integers) to find and display cards for.
         
     Returns:
-        None: Displays card widgets sequentially in the Jupyter notebook.
-        Shows error messages for any invalid or missing card IDs.
+        None: Displays card widgets in a responsive grid layout.
+        Shows error messages for any invalid or missing IDs.
+        
+    Raises:
+        ValueError: If neither card_ids nor sample_ids is provided, or if both are provided.
         
     Note:
         Less efficient than show_cards_from_df() due to individual API calls.
         Use show_cards_from_df() when you already have the card data loaded.
+        You must provide exactly one parameter (either card_ids OR sample_ids).
+        When using sample_ids, multiple cards per sample will all be displayed.
         
     Example:
-        >>> # Display specific cards by ID
-        >>> card_list = [47918, 47919, 47920]
-        >>> show_cards(card_list)
+        >>> # Display specific cards by card ID
+        >>> show_cards(card_ids=[47918, 47919, 47920])
         # Shows individual widgets for each valid card
         
-        >>> # Display cards from a filtered search
-        >>> aspirin_cards = get_card_by_sample_id("aspirin_sample_001")
-        >>> show_cards(aspirin_cards['id'].tolist())
-        # Shows all cards for aspirin samples
+        >>> # Display cards by sample IDs
+        >>> show_cards(sample_ids=[52677, 52678, 52679])
+        # Shows all cards from these samples (1 or more cards per sample)
+        
+        >>> # Research workflow example
+        >>> aspirin_samples = [52677, 52678, 52679]
+        >>> show_cards(sample_ids=aspirin_samples)
+        # Shows all cards for aspirin study samples
     """
+    # Validate parameters
+    if card_ids is None and sample_ids is None:
+        raise ValueError("You must provide either card_ids or sample_ids")
+    if card_ids is not None and sample_ids is not None:
+        raise ValueError("You cannot provide both card_ids and sample_ids. Choose one.")
+    
+    # Convert sample_ids to card_ids if needed
+    if sample_ids is not None:
+        print(f"🔍 Looking up cards for {len(sample_ids)} samples...")
+        card_ids = []
+        for sample_id in sample_ids:
+            # Get all cards for this sample
+            sample_cards = get_card(sample_id=sample_id)
+            if sample_cards is not None and not sample_cards.empty:
+                # Add all card IDs from this sample
+                sample_card_ids = sample_cards['id'].tolist()
+                card_ids.extend(sample_card_ids)
+                if len(sample_card_ids) > 1:
+                    print(f"  📋 Sample {sample_id}: found {len(sample_card_ids)} cards")
+            else:
+                print(f"  ⚠️ Sample {sample_id}: no cards found")
+        
+        if not card_ids:
+            print("❌ No cards found for any of the provided sample IDs")
+            return
+        
+        print(f"✅ Total cards to display: {len(card_ids)}")
+        print()  # Add blank line for readability
     card_widgets = []
 
     # Iterate through each card in the DataFrame
@@ -1139,7 +1176,7 @@ def show_cards(card_ids):
                 HTML(
                     f"""
             <div style="font-family: 'Courier New', monospace; color: darkred;">
-                &#128308; No data was retrieved for the provided card id lis {card_ids}</strong>.
+                &#128308; No data was retrieved for card ID {card_id}.
             </div>
             """
                 )
