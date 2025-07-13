@@ -1905,16 +1905,21 @@ def _predict_single_nn_with_interpreter(interpreter, image_url, labels, input_de
         # Read and preprocess image (same as nn_predict)
         img = read_img(image_url)
         
-        # Crop image to get active area
-        img = regionRoutine.get_center_region(img)
+        # Crop image to get active area (same coordinates as nn_predict)
+        img = img.crop((71, 359, 71 + 636, 359 + 490))
         
-        # Resize image for model input
-        input_shape = input_details[0]["shape"]
-        height, width = input_shape[1], input_shape[2]
-        img_resized = cv.resize(img, (width, height))
+        # Resize for square images (same as nn_predict)
+        size = (454, 454)
+        img = img.resize(size, Image.BICUBIC)
         
-        # Prepare input tensor
-        im = np.expand_dims(img_resized, axis=0).astype(np.float32)
+        # Convert to numpy array (same as nn_predict)
+        HEIGHT_INPUT, WIDTH_INPUT, DEPTH = (454, 454, 3)
+        im = (
+            np.asarray(img)
+            .flatten()
+            .reshape(1, HEIGHT_INPUT, WIDTH_INPUT, DEPTH)
+            .astype(np.float32)
+        )
         
         # Set input tensor
         interpreter.set_tensor(input_details[0]["index"], im)
