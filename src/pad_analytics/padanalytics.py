@@ -522,12 +522,12 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
     """
     # Responsive dimensions based on display mode
     if multi_card_mode:
-        # Flexible widths for multi-card display
-        small_im_width = "100%"  # Will be constrained by container
-        small_im_max_width = "250px"  # Maximum width to prevent oversizing
-        table_width = "100%"  # Flexible table width
+        # Compact dimensions for multi-card display
+        small_im_width = "200px"    # Smaller but fixed width for consistency
+        small_im_max_width = "200px" 
+        table_width = "280px"        # Much shorter table width
     else:
-        # Fixed widths for single card display (maintain existing behavior)
+        # Standard widths for single card display (maintain existing behavior)
         small_im_width = "300px"
         small_im_max_width = "300px"
         table_width = "500px"
@@ -537,8 +537,8 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
     background_color_value = "#f9f9f9"
     image_id = data_df.ID.values[0]
 
-    # Create responsive HTML widget with JavaScript for image zoom on click
-    image_style = f"width:{small_im_width}; max-width:{small_im_max_width}; height:auto; cursor: pointer;"
+    # Create compact HTML widget with JavaScript for image zoom on click
+    image_style = f"width:{small_im_width}; height:auto; cursor: pointer; display:block;"
     
     zoomable_image_html = f"""
     <div id="imageContainer_{image_id}" style="display: flex; justify-content: center; align-items: center;">    
@@ -547,15 +547,13 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
               var img = document.getElementById('zoomableImage_{image_id}');
               var overlay = document.getElementById('overlay_{image_id}');
               var currentWidth = img.style.width;
-              if (currentWidth === '{small_im_width}' || currentWidth.includes('%')) {{
+              if (currentWidth === '{small_im_width}') {{
                   img.style.width = '{full_im_width}px';  // Full size image width
-                  img.style.maxWidth = 'none';  // Remove max-width constraint for zoom
                   overlay.style.display = 'flex';  // Show overlay
                   overlay.style.alignItems = 'flex-start';  // Align the image at the top
                   overlay.appendChild(img);  // Move image to overlay
               }} else {{
-                  img.style.width = '{small_im_width}';  // Restore responsive width
-                  img.style.maxWidth = '{small_im_max_width}';  // Restore max-width constraint
+                  img.style.width = '{small_im_width}';  // Restore compact width
                   document.getElementById('imageContainer_{image_id}').appendChild(img);  // Move image back to grid
                   overlay.style.display = 'none';  // Hide overlay
               }}
@@ -578,26 +576,32 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
     <style>
         table {{
             font-family: sans-serif;
-            font-size: {12 if multi_card_mode else 14}px;
+            font-size: {11 if multi_card_mode else 14}px;
             border-collapse: collapse;
             width: {table_width};
-            min-width: {250 if multi_card_mode else 500}px;
+            min-width: {280 if multi_card_mode else 500}px;
+            table-layout: {'fixed' if multi_card_mode else 'auto'};
         }}
         td, th {{
             border: 1px solid #dddddd;
             text-align: left;
-            padding: 4px;
+            padding: {2 if multi_card_mode else 4}px;
+            word-wrap: break-word;
+            overflow: hidden;
         }}
 
         th {{
             background-color: {background_color_field};
             color: white;
             text-align: left;
-            width: 120px;
-            padding-left: 20px;
+            width: {80 if multi_card_mode else 120}px;
+            padding-left: {8 if multi_card_mode else 20}px;
+            font-size: {10 if multi_card_mode else 14}px;
         }}
         td{{
-            padding-left: 10px;
+            padding-left: {6 if multi_card_mode else 10}px;
+            max-width: {150 if multi_card_mode else 300}px;
+            text-overflow: ellipsis;
         }}
         tr:nth-child(even) {{
             background-color: {background_color_value};
