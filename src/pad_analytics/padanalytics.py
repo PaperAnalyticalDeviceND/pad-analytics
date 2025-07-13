@@ -609,7 +609,7 @@ def create_image_widget_with_info(image_url, data_df):
     return widgets.VBox([id_label, columns])
 
 
-def show_card(card_id):
+def show_card(card_id=None, sample_id=None):
     """Display a single PAD card with its image and metadata in Jupyter notebook.
     
     Creates an interactive widget showing the PAD card image alongside detailed
@@ -617,29 +617,55 @@ def show_card(card_id):
     Designed for visual inspection and data exploration in research workflows.
     
     Args:
-        card_id (int): The unique card ID to display.
+        card_id (int, optional): The unique card ID to display.
+        sample_id (int, optional): The sample ID to find and display the card for.
         
     Returns:
         None: Displays the widget directly in the Jupyter notebook interface.
         
+    Raises:
+        ValueError: If neither card_id nor sample_id is provided, or if both are provided.
+        
     Note:
         This function requires a Jupyter notebook environment with ipywidgets.
         If the card image is not available, a placeholder image will be shown.
+        You must provide exactly one parameter (either card_id OR sample_id).
         
     Example:
-        >>> # Display card with ID 12345
-        >>> show_card(12345)
+        >>> # Display card by card ID
+        >>> show_card(card_id=47918)
         # Shows interactive widget with card image and metadata table
+        
+        >>> # Display card by sample ID
+        >>> show_card(sample_id=12345)
+        # Finds and shows the card associated with sample 12345
         
         >>> # Card details displayed include:
         >>> # - Card ID, Sample ID, Sample Name
         >>> # - Quantity, Camera Type, Project Info
         >>> # - Creation date, Notes, Issue status
     """
-    info = get_card(card_id)
+    # Validate parameters
+    if card_id is None and sample_id is None:
+        raise ValueError("You must provide either card_id or sample_id")
+    if card_id is not None and sample_id is not None:
+        raise ValueError("You cannot provide both card_id and sample_id. Choose one.")
+    
+    # Get card information using the appropriate parameter
+    if card_id is not None:
+        info = get_card(card_id=card_id)
+        display_id = card_id
+    else:  # sample_id is not None
+        info = get_card(sample_id=sample_id)
+        # Extract card_id for display purposes
+        if info is not None and not info.empty:
+            display_id = info['id'].iloc[0]
+        else:
+            display_id = f"sample_{sample_id}"
 
-    if info is None:
-        print(f"Failed to retrieve data for card {card_id}")
+    if info is None or info.empty:
+        identifier = card_id if card_id is not None else f"sample {sample_id}"
+        print(f"Failed to retrieve data for {identifier}")
         return
 
     # Data validation: check if essential fields exist in the API response
@@ -654,7 +680,7 @@ def show_card(card_id):
 
     # Example of how to use `safe_get` for extracting fields
     data = {
-        "ID": [card_id],
+        "ID": [display_id],
         "Sample ID": [safe_get("sample_id")],
         "Sample Name": [safe_get("sample_name")],
         "Quantity": [safe_get("quantity")],
@@ -676,7 +702,8 @@ def show_card(card_id):
             "https://pad.crc.nd.edu/" + info["processed_file_location"].values[0]
         )
     except (KeyError, IndexError):
-        print(f"No valid image found for card {card_id}")
+        identifier = card_id if card_id is not None else f"sample {sample_id}"
+        print(f"No valid image found for {identifier}")
         image_url = "https://via.placeholder.com/300"  # Default placeholder image
 
     # Create the widget for the image and its info
@@ -868,7 +895,7 @@ def get_card_by_sample_id(sample_id):
         
     Example:
         >>> cards = pad.get_card_by_sample_id(53787)
-        >>> print(f"Found {len(cards)} cards for sample 53787")
+        >>> print(f"Found {len(cards)} cards for sample 47918")
         Found 1 cards for sample 53787
         >>> print(cards[['id', 'sample_name', 'quantity']])
             id         sample_name  quantity
@@ -1037,7 +1064,7 @@ def show_cards(card_ids):
         
     Example:
         >>> # Display specific cards by ID
-        >>> card_list = [12345, 12346, 12347]
+        >>> card_list = [47918, 47919, 47920]
         >>> show_cards(card_list)
         # Shows individual widgets for each valid card
         
