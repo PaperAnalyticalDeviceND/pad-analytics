@@ -1232,34 +1232,53 @@ def get_dataset_list(mapping_file_path=MODEL_DATASET_MAPPING):
 
 
 def get_datasets():
-    """
-    Get clean overview of all available datasets.
+    """Get clean overview of all available datasets.
     
     Combines data from dynamic catalog and static mappings to provide
-    a user-friendly overview of datasets with documentation links.
+    a user-friendly overview with documentation links.
     
     Returns:
-        pd.DataFrame with columns:
-        - Dataset Name: Name of the dataset
-        - Total Records: Combined training + testing records  
-        - Description: Dataset description from catalog
-        - Documentation: Link to dataset readme
-        - Source: Data source (catalog/static/hybrid)
+        pd.DataFrame: Dataset overview with columns:
+            - Dataset Name (str): Name of the dataset
+            - Total Records (int): Combined training + testing records  
+            - Description (str): Dataset description from catalog
+            - Documentation (str): Link to dataset readme at padproject.info
+            - Source (str): Data source - "catalog", "static", or "hybrid"
+            
+    Example:
+        >>> datasets_df = pad.get_datasets()
+        >>> print(f"Found {len(datasets_df)} datasets")
+        Found 10 datasets
+        >>> print(datasets_df[['Dataset Name', 'Documentation']].iloc[0])
+        Dataset Name: FHI2020_Stratified_Sampling
+        Documentation: https://padproject.info/.../readme/
     """
     dm = get_dataset_manager()
     return dm.get_datasets()
 
 
 def get_dataset_name_from_model_id(model_id, use_dynamic=True):
-    """
-    Get dataset name used by a specific model.
+    """Get dataset name used by a specific model.
     
-    Parameters:
-        model_id (int): Model ID
-        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+    Looks up which dataset was used to train and test the model.
+    
+    Args:
+        model_id (int): The model ID to look up.
+        use_dynamic (bool): Whether to use DatasetManager (True) or 
+            static CSV only (False). Defaults to True.
         
     Returns:
-        str or None: Dataset name or None if not found
+        str or None: Dataset name (e.g., "FHI2020_Stratified_Sampling") 
+            or None if model not found.
+            
+    Example:
+        >>> dataset_name = pad.get_dataset_name_from_model_id(16)
+        >>> print(dataset_name)
+        FHI2020_Stratified_Sampling
+        
+    Note:
+        This function replaces the deprecated get_dataset_from_model_id()
+        which had a misleading name.
     """
     if use_dynamic:
         dm = get_dataset_manager()
@@ -1452,18 +1471,36 @@ def get_dataset(name, use_dynamic=True):
 
 
 def get_dataset_cards(dataset_name, use_dynamic=True):
-    """
-    Get all cards (samples) from a specific dataset by name.
+    """Get all cards (samples) from a specific dataset by name.
     
-    Returns clean dataset view without 'is_train' column.
+    Returns a clean dataset view without implementation details.
+    This is the recommended way to access dataset contents.
     
-    Parameters:
-        dataset_name (str): Name of the dataset
-        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+    Args:
+        dataset_name (str): Name of the dataset (e.g., "FHI2020_Stratified_Sampling").
+        use_dynamic (bool): Whether to use DatasetManager (True) or 
+            static functions only (False). Defaults to True.
         
     Returns:
-        pd.DataFrame or None: Combined train/test dataset with all cards/samples
-        Note: No 'is_train' column - clean dataset view
+        pd.DataFrame or None: Combined train/test dataset or None if not found.
+            Typical columns include:
+            - id: Card ID
+            - sample_id: Sample identifier
+            - sample_name: Drug/sample name  
+            - quantity: Concentration
+            - url: Image URL
+            - Additional metadata
+            
+    Note:
+        No 'is_train' column is included for a clean view. Use get_model_data()
+        if you need train/test distinction.
+        
+    Example:
+        >>> cards = pad.get_dataset_cards("FHI2020_Stratified_Sampling")
+        >>> print(f"Dataset contains {len(cards)} cards")
+        Dataset contains 8001 cards
+        >>> print(cards.columns.tolist())
+        ['id', 'sample_id', 'sample_name', 'quantity', ...]
     """
     if use_dynamic:
         dm = get_dataset_manager()
@@ -1477,17 +1514,42 @@ def get_dataset_cards(dataset_name, use_dynamic=True):
 
 
 def get_model_data(model_id, data_type="all", use_dynamic=True):
-    """
-    Get training, testing, or all data for a specific model.
+    """Get training, testing, or all data for a specific model.
     
-    Parameters:
-        model_id (int): Model ID
-        data_type (str): Type of data - "train", "test", or "all" (default)
-        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+    Flexible function to retrieve model-specific datasets with control
+    over train/test split.
+    
+    Args:
+        model_id (int): The model ID to retrieve data for.
+        data_type (str): Type of data to return:
+            - "train": Training data only (no is_train column)
+            - "test": Test data only (no is_train column)
+            - "all": Combined data (includes is_train column)
+            Defaults to "all".
+        use_dynamic (bool): Whether to use DatasetManager (True) or
+            fallback to legacy functions (False). Defaults to True.
         
     Returns:
-        pd.DataFrame or None: Requested model data
-        Note: 'is_train' column included only when data_type="all"
+        pd.DataFrame or None: Requested dataset or None if model not found.
+            When data_type="all", includes 'is_train' column where:
+            - is_train=1: Training samples
+            - is_train=0: Test samples
+            
+    Raises:
+        ValueError: If data_type is not "train", "test", or "all".
+        
+    Example:
+        >>> # Get all data with train/test labels
+        >>> all_data = pad.get_model_data(16, "all")
+        >>> train_count = len(all_data[all_data['is_train'] == 1])
+        >>> test_count = len(all_data[all_data['is_train'] == 0])
+        >>> print(f"Model 16: {train_count} train, {test_count} test")
+        Model 16: 5923 train, 2078 test
+        
+        >>> # Get only training data
+        >>> train_data = pad.get_model_data(16, "train")
+        >>> print(f"Training samples: {len(train_data)}")
+        Training samples: 5923
     """
     if data_type not in ["train", "test", "all"]:
         raise ValueError("data_type must be 'train', 'test', or 'all'")
@@ -1512,15 +1574,35 @@ def get_model_data(model_id, data_type="all", use_dynamic=True):
 
 
 def get_dataset_info(name, use_dynamic=True):
-    """
-    Get comprehensive information about a dataset.
+    """Get comprehensive information about a dataset.
     
-    Parameters:
-        name (str): Dataset name
-        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+    Provides rich metadata including catalog information, model associations,
+    and dataset URLs.
+    
+    Args:
+        name (str): Dataset name to look up.
+        use_dynamic (bool): Whether to use DatasetManager for rich metadata (True)
+            or basic static info only (False). Defaults to True.
         
     Returns:
-        dict: Dataset information including metadata, models, and URLs
+        dict: Dataset information including:
+            - name (str): Dataset name
+            - source (str): "catalog", "static", or "hybrid"
+            - description (str): Dataset description (if available)
+            - record_count (int): Total number of records
+            - models (list): Models using this dataset
+            - training_dataset_url (str): URL to training data
+            - test_dataset_url (str): URL to test data
+            - Additional catalog metadata (when use_dynamic=True)
+            
+    Example:
+        >>> info = pad.get_dataset_info("FHI2020_Stratified_Sampling")
+        >>> print(f"Dataset: {info['name']}")
+        Dataset: FHI2020_Stratified_Sampling
+        >>> print(f"Records: {info['record_count']}")
+        Records: 8001
+        >>> print(f"Used by {len(info['models'])} models")
+        Used by 4 models
     """
     if use_dynamic:
         dm = get_dataset_manager()

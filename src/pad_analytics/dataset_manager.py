@@ -187,16 +187,26 @@ class DatasetManager:
         return sorted(list(datasets))
     
     def get_datasets(self) -> pd.DataFrame:
-        """
-        Get clean overview of all available datasets.
+        """Get clean overview of all available datasets.
+        
+        Combines information from dynamic catalog and static mappings to provide
+        a comprehensive dataset overview with documentation links.
         
         Returns:
-            pd.DataFrame with columns:
-            - Dataset Name: Name of the dataset
-            - Total Records: Combined training + testing records
-            - Description: Dataset description from catalog
-            - Documentation: Link to dataset readme
-            - Source: Data source (catalog/static/hybrid)
+            pd.DataFrame: Dataset overview with the following columns:
+                - Dataset Name (str): Name of the dataset
+                - Total Records (int): Combined training + testing records
+                - Description (str): Dataset description from catalog
+                - Documentation (str): Link to dataset readme
+                - Source (str): Data source - "catalog", "static", or "hybrid"
+                
+        Example:
+            >>> dm = DatasetManager()
+            >>> datasets_df = dm.get_datasets()
+            >>> print(datasets_df[['Dataset Name', 'Total Records']].head())
+            Dataset Name                         Total Records
+            FHI2020_Stratified_Sampling         8001
+            FHI2021                             1500
         """
         datasets = []
         
@@ -233,18 +243,29 @@ class DatasetManager:
         return pd.DataFrame(datasets)
     
     def get_dataset_info(self, dataset_name: str) -> Dict:
-        """
-        Get comprehensive dataset information.
+        """Get comprehensive dataset information.
         
-        Merges information from:
-        1. Dynamic catalog (metadata, schema, etc.)
-        2. Static mapping (model associations)
+        Merges information from dynamic catalog (metadata, schema) and static 
+        mapping (model associations) to provide complete dataset details.
         
         Args:
-            dataset_name: Name of the dataset
+            dataset_name (str): Name of the dataset to retrieve information for.
             
         Returns:
-            Dictionary with all available dataset information
+            dict: Dataset information including:
+                - name (str): Dataset name
+                - source (str): Data source - "catalog", "static", or "hybrid"
+                - description (str): Dataset description (if available)
+                - record_count (int): Total number of records
+                - models (list): List of models using this dataset
+                - training_dataset_url (str): URL to training data
+                - test_dataset_url (str): URL to test data
+                - Additional metadata from catalog (if available)
+                
+        Example:
+            >>> info = dm.get_dataset_info("FHI2020_Stratified_Sampling")
+            >>> print(f"Dataset has {info['record_count']} records")
+            Dataset has 8001 records
         """
         info = {
             'name': dataset_name,
@@ -371,14 +392,21 @@ class DatasetManager:
         return info.get('models', [])
     
     def get_dataset_name_from_model_id(self, model_id: int) -> Optional[str]:
-        """
-        Get dataset name used by a specific model.
+        """Get dataset name used by a specific model.
+        
+        Looks up which dataset was used to train and test the specified model.
         
         Args:
-            model_id: Model ID
+            model_id (int): The model ID to look up.
             
         Returns:
-            Dataset name or None if not found
+            str or None: Dataset name (e.g., "FHI2020_Stratified_Sampling") or
+                None if model ID not found.
+                
+        Example:
+            >>> dataset_name = dm.get_dataset_name_from_model_id(16)
+            >>> print(dataset_name)
+            FHI2020_Stratified_Sampling
         """
         mapping_df = self._load_model_mapping()
         model_rows = mapping_df[mapping_df['Model ID'] == model_id]
@@ -409,15 +437,32 @@ class DatasetManager:
         return self.get_dataset_name_from_model_id(model_id)
     
     def get_dataset_cards(self, dataset_name: str) -> Optional[pd.DataFrame]:
-        """
-        Get all cards (samples) from a specific dataset.
+        """Get all cards (samples) from a specific dataset.
+        
+        Loads and combines training and test data for the specified dataset.
+        Returns a clean view without implementation details like 'is_train' column.
         
         Args:
-            dataset_name: Name of the dataset
+            dataset_name (str): Name of the dataset to load cards from.
             
         Returns:
-            DataFrame with all cards from the dataset (train and test combined)
-            Note: No 'is_train' column - this is a clean dataset view
+            pd.DataFrame or None: Combined dataset with all cards/samples, or None if
+                dataset not found. Columns typically include:
+                - id: Card ID
+                - sample_id: Sample identifier  
+                - sample_name: Drug/sample name
+                - quantity: Concentration/amount
+                - url: Image URL
+                - Additional metadata columns
+                
+        Note:
+            The 'is_train' column is NOT included in the output for a clean view.
+            Use get_model_data() if you need train/test distinction.
+                
+        Example:
+            >>> cards = dm.get_dataset_cards("FHI2020_Stratified_Sampling")
+            >>> print(f"Loaded {len(cards)} cards")
+            Loaded 8001 cards
         """
         # Get dataset URLs
         train_url, test_url = self.get_dataset_urls(dataset_name)
@@ -457,16 +502,35 @@ class DatasetManager:
         return data_df
     
     def get_model_data(self, model_id: int, data_type: str = "all") -> Optional[pd.DataFrame]:
-        """
-        Get training, testing, or all data for a specific model.
+        """Get training, testing, or all data for a specific model.
+        
+        Retrieves dataset used by a specific model, with options to get
+        training data only, test data only, or combined dataset.
         
         Args:
-            model_id: Model ID
-            data_type: Type of data to return ("train", "test", or "all")
-            
+            model_id (int): The model ID to retrieve data for.
+            data_type (str): Type of data to return. Options:
+                - "train": Training data only (no is_train column)
+                - "test": Test data only (no is_train column)
+                - "all": Combined data (includes is_train column)
+                
         Returns:
-            DataFrame with requested data or None if not found
-            Note: 'is_train' column included only when data_type="all"
+            pd.DataFrame or None: Requested dataset or None if model not found.
+                When data_type="all", includes 'is_train' column (1=train, 0=test).
+                
+        Raises:
+            ValueError: If data_type is not one of "train", "test", or "all".
+            
+        Example:
+            >>> # Get all data with train/test indicator
+            >>> all_data = dm.get_model_data(16, "all")
+            >>> print(f"Training: {len(all_data[all_data['is_train']==1])}")
+            Training: 5923
+            
+            >>> # Get only training data (no is_train column)
+            >>> train_data = dm.get_model_data(16, "train")
+            >>> print(f"Training samples: {len(train_data)}")
+            Training samples: 5923
         """
         if data_type not in ["train", "test", "all"]:
             raise ValueError("data_type must be 'train', 'test', or 'all'")
