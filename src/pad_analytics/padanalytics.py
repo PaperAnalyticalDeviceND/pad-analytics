@@ -1187,20 +1187,26 @@ def show_cards(card_ids):
             print(f"No valid image found for card {card_id}")
             image_url = "https://via.placeholder.com/300"  # Placeholder if no image
 
-        # Create the widget for the current card and append it to the list
-        card_widget = create_image_widget_with_info(image_url, data_df)
+        # Create the widget for the current card with multi-card mode enabled
+        card_widget = create_image_widget_with_info(image_url, data_df, multi_card_mode=True)
         card_widgets.append(card_widget)
 
-    # Create a layout to display the cards in a grid-like format
-    # Display the widgets in rows of two or three cards per row
-    max_cards_per_row = 3  # Set how many cards you want per row
+    # Create a responsive layout to display the cards
+    # Use 2 cards per row to match show_cards_from_df() behavior
+    max_cards_per_row = 2  # Adjusted to fit 650px cards side-by-side
     card_rows = [
-        widgets.HBox(card_widgets[i : i + max_cards_per_row])
+        widgets.HBox(card_widgets[i : i + max_cards_per_row],
+                    layout=widgets.Layout(width='100%', 
+                                         display='flex',
+                                         flex_flow='row wrap',
+                                         justify_content='space-around'))
         for i in range(0, len(card_widgets), max_cards_per_row)
     ]
 
-    # Display the rows vertically
-    display(widgets.VBox(card_rows))
+    # Display the rows of widgets vertically with responsive container
+    display(widgets.VBox(card_rows, 
+                        layout=widgets.Layout(width='100%',
+                                             overflow='hidden')))
 
 
 def get_models():
