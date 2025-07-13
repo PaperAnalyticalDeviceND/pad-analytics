@@ -631,14 +631,22 @@ def show_card(card_id=None, sample_id=None):
         If the card image is not available, a placeholder image will be shown.
         You must provide exactly one parameter (either card_id OR sample_id).
         
+        When using sample_id: If multiple cards exist for the same sample,
+        all cards will be automatically displayed using batch visualization.
+        For single cards, the standard single-card widget is used.
+        
     Example:
         >>> # Display card by card ID
         >>> show_card(card_id=47918)
         # Shows interactive widget with card image and metadata table
         
-        >>> # Display card by sample ID
+        >>> # Display card by sample ID (single card)
         >>> show_card(sample_id=12345)
-        # Finds and shows the card associated with sample 12345
+        # Shows single card widget for sample 12345
+        
+        >>> # Display cards by sample ID (multiple cards)
+        >>> show_card(sample_id=67890)
+        # Automatically shows all cards for sample 67890 in batch view
         
         >>> # Card details displayed include:
         >>> # - Card ID, Sample ID, Sample Name
@@ -657,8 +665,13 @@ def show_card(card_id=None, sample_id=None):
         display_id = card_id
     else:  # sample_id is not None
         info = get_card(sample_id=sample_id)
-        # Extract card_id for display purposes
+        # Handle multiple cards for the same sample_id
         if info is not None and not info.empty:
+            if len(info) > 1:
+                print(f"📋 Sample {sample_id} has {len(info)} cards. Displaying all cards:")
+                # Use show_cards_from_df to display all cards for this sample
+                show_cards_from_df(info)
+                return  # Exit early since we've displayed all cards
             display_id = info['id'].iloc[0]
         else:
             display_id = f"sample_{sample_id}"
