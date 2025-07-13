@@ -1520,15 +1520,17 @@ def predict(card_id, model_id, actual_api=None, verbose=False):
     return actual_label, prediction
 
 
-def show_prediction(card_id, model_id):
+def show_prediction(card_id=None, sample_id=None, model_id=None):
     """Display a PAD card with ML model prediction results.
     
     Shows the card image and metadata alongside machine learning prediction
     results. Includes model information and formatted prediction output for
-    analysis and validation workflows.
+    analysis and validation workflows. Can identify card by either card_id
+    or sample_id.
     
     Args:
-        card_id (int): The unique card ID to analyze.
+        card_id (int, optional): The unique card ID to analyze.
+        sample_id (int, optional): The sample ID to find and analyze the card for.
         model_id (int): The model ID to use for prediction (e.g., 16 for
             classification, 18 for concentration prediction).
             
@@ -1538,18 +1540,23 @@ def show_prediction(card_id, model_id):
             - Prediction result (formatted to 2 decimal places for numeric)
             - Model file name and type information
             
+    Raises:
+        ValueError: If neither card_id nor sample_id is provided, or if both are provided.
+        ValueError: If model_id is not provided.
+            
     Note:
-        Requires Jupyter notebook environment. Combines card visualization
-        with ML prediction for research and validation workflows.
+        Requires Jupyter notebook environment. You must provide exactly one of
+        card_id OR sample_id. If sample_id returns multiple cards, only the 
+        first card will be analyzed.
         
     Example:
-        >>> # Show classification prediction
+        >>> # Show prediction by card ID
         >>> show_prediction(card_id=19208, model_id=16)
         # Displays card with drug classification result
         
-        >>> # Show concentration prediction  
-        >>> show_prediction(card_id=19208, model_id=18)
-        # Displays card with concentration prediction (e.g., "75.32")
+        >>> # Show prediction by sample ID
+        >>> show_prediction(sample_id=12345, model_id=18)
+        # Finds card for sample and shows concentration prediction
         
         >>> # Widget shows:
         >>> # - All standard card metadata
@@ -1557,10 +1564,36 @@ def show_prediction(card_id, model_id):
         >>> # - Model File: "24fhiNN1classifyAPI.tflite"
         >>> # - Model Type: "classification" or "regression"
     """
-    info = get_card(card_id)
+    # Validate parameters
+    if card_id is None and sample_id is None:
+        raise ValueError("You must provide either card_id or sample_id")
+    if card_id is not None and sample_id is not None:
+        raise ValueError("You cannot provide both card_id and sample_id. Choose one.")
+    if model_id is None:
+        raise ValueError("You must provide model_id for prediction")
+    
+    # Get card information using the appropriate parameter
+    if card_id is not None:
+        info = get_card(card_id=card_id)
+        display_id = card_id
+    else:  # sample_id is not None
+        info = get_card(sample_id=sample_id)
+        # Handle multiple cards for the same sample_id
+        if info is not None and not info.empty:
+            if len(info) > 1:
+                print(f"⚠️ Sample {sample_id} has {len(info)} cards. Using the first one (Card ID: {info['id'].iloc[0]}) for prediction.")
+            display_id = info['id'].iloc[0]
+            card_id = display_id  # Set card_id for prediction call
+            # Use only the first card's data
+            info = info.iloc[[0]]
+        else:
+            display_id = f"sample_{sample_id}"
+            print(f"Failed to retrieve data for sample {sample_id}")
+            return
 
-    if info is None:
-        print(f"Failed to retrieve data for card {card_id}")
+    if info is None or info.empty:
+        identifier = card_id if card_id is not None else f"sample {sample_id}"
+        print(f"Failed to retrieve data for {identifier}")
         return
 
     # Data validation: check if essential fields exist in the API response
@@ -1589,7 +1622,7 @@ def show_prediction(card_id, model_id):
 
     # Example of how to use `safe_get` for extracting fields
     data = {
-        "ID": [card_id],
+        "ID": [display_id],
         "Sample ID": [safe_get("sample_id")],
         "Sample Name": [safe_get("sample_name")],
         "Quantity": [safe_get("quantity")],
@@ -1614,7 +1647,8 @@ def show_prediction(card_id, model_id):
             "https://pad.crc.nd.edu/" + info["processed_file_location"].values[0]
         )
     except (KeyError, IndexError):
-        print(f"No valid image found for card {card_id}")
+        identifier = card_id if card_id is not None else f"sample {sample_id}"
+        print(f"No valid image found for {identifier}")
         image_url = "https://via.placeholder.com/300"  # Default placeholder image
 
     # Create the widget for the image and its info
