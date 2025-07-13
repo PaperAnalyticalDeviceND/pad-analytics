@@ -676,8 +676,8 @@ def show_card(card_id=None, sample_id=None):
         # Shows interactive widget with card image and metadata table
         
         >>> # Display card by sample ID (single card)
-        >>> show_card(sample_id=12345)
-        # Shows single card widget for sample 12345
+        >>> show_card(sample_id=52677)
+        # Shows single card widget for sample 52677
         
         >>> # Display cards by sample ID (multiple cards)
         >>> show_card(sample_id=67890)
@@ -1555,7 +1555,7 @@ def show_prediction(card_id=None, sample_id=None, model_id=None):
         # Displays card with drug classification result
         
         >>> # Show prediction by sample ID
-        >>> show_prediction(sample_id=12345, model_id=18)
+        >>> show_prediction(sample_id=52677, model_id=18)
         # Finds card for sample and shows concentration prediction
         
         >>> # Widget shows:
