@@ -15,6 +15,7 @@ import tempfile
 
 from . import regionRoutine
 from . import pad_helper
+from .dataset_manager import DatasetManager
 import numpy as np
 import csv
 import cv2 as cv
@@ -105,6 +106,16 @@ def _get_mapping_file_path():
 
 
 MODEL_DATASET_MAPPING = _get_mapping_file_path()
+
+# Initialize dataset manager singleton
+_dataset_manager = None
+
+def get_dataset_manager():
+    """Get or create the singleton DatasetManager instance."""
+    global _dataset_manager
+    if _dataset_manager is None:
+        _dataset_manager = DatasetManager()
+    return _dataset_manager
 
 
 def get_data_api(request_url, data_type=""):
@@ -1189,6 +1200,17 @@ def get_model_dataset_mapping(mapping_file_path=MODEL_DATASET_MAPPING):
 
 
 def get_dataset_list(mapping_file_path=MODEL_DATASET_MAPPING):
+    """
+    Get list of available datasets (original function for backward compatibility).
+    
+    Returns DataFrame with Training Dataset, Test Dataset, and Model ID columns.
+    
+    Parameters:
+        mapping_file_path (str): Path to the mapping CSV file
+        
+    Returns:
+        pd.DataFrame: DataFrame with original structure for backward compatibility
+    """
     mapping_df = get_model_dataset_mapping(mapping_file_path)
     datasets_df = (
         mapping_df.groupby(["Dataset Name", "Training Dataset", "Test Dataset"])[
@@ -1209,69 +1231,397 @@ def get_dataset_list(mapping_file_path=MODEL_DATASET_MAPPING):
     return datasets_df
 
 
-def get_dataset_from_model_id(model_id, mapping_file_path=MODEL_DATASET_MAPPING):
+def get_datasets():
+    """Get clean overview of all available datasets.
+    
+    Combines data from dynamic catalog and static mappings to provide
+    a user-friendly overview with documentation links.
+    
+    Returns:
+        pd.DataFrame: Dataset overview with columns:
+            - Dataset Name (str): Name of the dataset
+            - Total Records (int): Combined training + testing records  
+            - Description (str): Dataset description from catalog
+            - Documentation (str): Link to dataset readme at padproject.info
+            - Source (str): Data source - "catalog", "static", or "hybrid"
+            
+    Example:
+        >>> datasets_df = pad.get_datasets()
+        >>> print(f"Found {len(datasets_df)} datasets")
+        Found 10 datasets
+        >>> print(datasets_df[['Dataset Name', 'Documentation']].iloc[0])
+        Dataset Name: FHI2020_Stratified_Sampling
+        Documentation: https://padproject.info/.../readme/
     """
-    Get dataset information for a specific model ID.
+    dm = get_dataset_manager()
+    return dm.get_datasets()
+
+
+def get_dataset_name_from_model_id(model_id, use_dynamic=True):
+    """Get dataset name used by a specific model.
+    
+    Looks up which dataset was used to train and test the model.
+    
+    Args:
+        model_id (int): The model ID to look up.
+        use_dynamic (bool): Whether to use DatasetManager (True) or 
+            static CSV only (False). Defaults to True.
+        
+    Returns:
+        str or None: Dataset name (e.g., "FHI2020_Stratified_Sampling") 
+            or None if model not found.
+            
+    Example:
+        >>> dataset_name = pad.get_dataset_name_from_model_id(16)
+        >>> print(dataset_name)
+        FHI2020_Stratified_Sampling
+        
+    Note:
+        This function replaces the deprecated get_dataset_from_model_id()
+        which had a misleading name.
+    """
+    if use_dynamic:
+        dm = get_dataset_manager()
+        return dm.get_dataset_name_from_model_id(model_id)
+    else:
+        # Fallback to CSV lookup
+        mapping_df = get_model_dataset_mapping()
+        model_rows = mapping_df[mapping_df['Model ID'] == model_id]
+        if not model_rows.empty:
+            return model_rows.iloc[0]['Dataset Name']
+        return None
+
+
+def get_dataset_from_model_id(model_id, mapping_file_path=MODEL_DATASET_MAPPING, use_dynamic=True):
+    """
+    DEPRECATED: This function is deprecated and will be removed in a future version.
+    
+    The function name is misleading - it returns a DataFrame with data, not just the dataset name.
+    
+    Use instead:
+    - get_dataset_name_from_model_id(model_id) → returns dataset name (string)
+    - get_model_data(model_id, "all") → returns dataset data (DataFrame)
     
     Parameters:
         model_id (int): The model ID to look up
         mapping_file_path (str): Path to the mapping CSV file
+        use_dynamic (bool): Whether to use dynamic catalog (default: True)
         
     Returns:
         pd.DataFrame or None: Combined train/test dataset or None if not found
     """
-    model_dataset_mapping = get_model_dataset_mapping(mapping_file_path)
-    model_dataset = model_dataset_mapping[model_dataset_mapping["Model ID"] == model_id]
-
-    # display(model_dataset)
-    if len(model_dataset) == 0:
-        print("No dataset found for this model")
-        return None
-    else:
-        # get Dataset dataframe
-        train_url = model_dataset[model_dataset["Model ID"] == model_id][
-            "Training Dataset"
-        ].values[0]
-        train_df = pd.read_csv(train_url)
-        test_url = model_dataset[model_dataset["Model ID"] == model_id][
-            "Test Dataset"
-        ].values[0]
-        test_df = pd.read_csv(test_url)
-
-        # combine train_df and test_df but make a column to identify if the row is train or test
-        train_df["is_train"] = 1
-        test_df["is_train"] = 0
-        data_df = pd.concat([train_df, test_df])
-        return data_df
-
-
-def get_dataset(name):
-
-    df = get_dataset_list()
-    dataset = df[df["Dataset Name"] == name]
-
-    if len(dataset) > 0:
+    import warnings
+    warnings.warn(
+        "get_dataset_from_model_id() is deprecated and will be removed in a future version. "
+        "Use get_dataset_name_from_model_id() to get the dataset name, or "
+        "get_model_data(model_id, 'all') to get the dataset data.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    if use_dynamic:
+        # Use the dataset manager
+        dm = get_dataset_manager()
+        dataset_name = dm.get_dataset_from_model_id(model_id)
+        
+        if dataset_name is None:
+            print("No dataset found for this model")
+            return None
+            
+        # Get URLs and load data
+        train_url, test_url = dm.get_dataset_urls(dataset_name)
+        
         train_df = None
         test_df = None
-
-        # get Dataset dataframe
-        if "Test Dataset" in dataset.columns:
-            test_url = dataset["Test Dataset"].values[0]
-            test_df = pd.read_csv(test_url)
-            test_df["is_train"] = 0
-
-        # print(dataset['Training Dataset'])
-        if dataset["Training Dataset"].notna().any():
-            train_url = dataset["Training Dataset"].values[0]
+        
+        if train_url:
             train_df = pd.read_csv(train_url)
             train_df["is_train"] = 1
-
-        # combine train_df and test_df but make a column to identify if the row is train or test
-        data_df = pd.concat([train_df, test_df])
+            
+        if test_url:
+            test_df = pd.read_csv(test_url)
+            test_df["is_train"] = 0
+            
+        # Combine datasets
+        if train_df is not None and test_df is not None:
+            data_df = pd.concat([train_df, test_df])
+        elif train_df is not None:
+            data_df = train_df
+        elif test_df is not None:
+            data_df = test_df
+        else:
+            print(f"No dataset URLs found for dataset: {dataset_name}")
+            return None
+            
         return data_df
     else:
-        print(f"Dataset with name {name} not found")
-        return None
+        # Fallback to old method
+        model_dataset_mapping = get_model_dataset_mapping(mapping_file_path)
+        model_dataset = model_dataset_mapping[model_dataset_mapping["Model ID"] == model_id]
+
+        # display(model_dataset)
+        if len(model_dataset) == 0:
+            print("No dataset found for this model")
+            return None
+        else:
+            # get Dataset dataframe
+            train_url = model_dataset[model_dataset["Model ID"] == model_id][
+                "Training Dataset"
+            ].values[0]
+            train_df = pd.read_csv(train_url)
+            test_url = model_dataset[model_dataset["Model ID"] == model_id][
+                "Test Dataset"
+            ].values[0]
+            test_df = pd.read_csv(test_url)
+
+            # combine train_df and test_df but make a column to identify if the row is train or test
+            train_df["is_train"] = 1
+            test_df["is_train"] = 0
+            data_df = pd.concat([train_df, test_df])
+            return data_df
+
+
+def get_dataset(name, use_dynamic=True):
+    """
+    DEPRECATED: This function is deprecated and will be removed in a future version.
+    
+    Use instead:
+    - get_dataset_cards(name) → clean dataset view (no is_train column)
+    - get_model_data(model_id, "all") → dataset with is_train column when needed
+    
+    Parameters:
+        name (str): Dataset name
+        use_dynamic (bool): Whether to use dynamic catalog (default: True)
+        
+    Returns:
+        pd.DataFrame or None: Combined train/test dataset or None if not found
+    """
+    import warnings
+    warnings.warn(
+        "get_dataset() is deprecated and will be removed in a future version. "
+        "Use get_dataset_cards() for clean dataset view, or "
+        "get_model_data(model_id, 'all') for dataset with train/test distinction.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    if use_dynamic:
+        # Use the dataset manager
+        dm = get_dataset_manager()
+        train_url, test_url = dm.get_dataset_urls(name)
+        
+        if train_url is None and test_url is None:
+            print(f"Dataset with name {name} not found")
+            return None
+            
+        train_df = None
+        test_df = None
+        
+        if train_url:
+            try:
+                train_df = pd.read_csv(train_url)
+                train_df["is_train"] = 1
+            except Exception as e:
+                print(f"Error loading training data: {e}")
+                
+        if test_url:
+            try:
+                test_df = pd.read_csv(test_url)
+                test_df["is_train"] = 0
+            except Exception as e:
+                print(f"Error loading test data: {e}")
+                
+        # Combine datasets
+        if train_df is not None and test_df is not None:
+            data_df = pd.concat([train_df, test_df])
+        elif train_df is not None:
+            data_df = train_df
+        elif test_df is not None:
+            data_df = test_df
+        else:
+            print(f"Failed to load any data for dataset: {name}")
+            return None
+            
+        return data_df
+    else:
+        # Fallback to old method
+        df = get_dataset_list(use_dynamic=False)
+        dataset = df[df["Dataset Name"] == name]
+
+        if len(dataset) > 0:
+            train_df = None
+            test_df = None
+
+            # get Dataset dataframe
+            if "Test Dataset" in dataset.columns:
+                test_url = dataset["Test Dataset"].values[0]
+                test_df = pd.read_csv(test_url)
+                test_df["is_train"] = 0
+
+            # print(dataset['Training Dataset'])
+            if dataset["Training Dataset"].notna().any():
+                train_url = dataset["Training Dataset"].values[0]
+                train_df = pd.read_csv(train_url)
+                train_df["is_train"] = 1
+
+            # combine train_df and test_df but make a column to identify if the row is train or test
+            data_df = pd.concat([train_df, test_df])
+            return data_df
+        else:
+            print(f"Dataset with name {name} not found")
+            return None
+
+
+def get_dataset_cards(dataset_name, use_dynamic=True):
+    """Get all cards (samples) from a specific dataset by name.
+    
+    Returns a clean dataset view without implementation details.
+    This is the recommended way to access dataset contents.
+    
+    Args:
+        dataset_name (str): Name of the dataset (e.g., "FHI2020_Stratified_Sampling").
+        use_dynamic (bool): Whether to use DatasetManager (True) or 
+            static functions only (False). Defaults to True.
+        
+    Returns:
+        pd.DataFrame or None: Combined train/test dataset or None if not found.
+            Typical columns include:
+            - id: Card ID
+            - sample_id: Sample identifier
+            - sample_name: Drug/sample name  
+            - quantity: Concentration
+            - url: Image URL
+            - Additional metadata
+            
+    Note:
+        No 'is_train' column is included for a clean view. Use get_model_data()
+        if you need train/test distinction.
+        
+    Example:
+        >>> cards = pad.get_dataset_cards("FHI2020_Stratified_Sampling")
+        >>> print(f"Dataset contains {len(cards)} cards")
+        Dataset contains 8001 cards
+        >>> print(cards.columns.tolist())
+        ['id', 'sample_id', 'sample_name', 'quantity', ...]
+    """
+    if use_dynamic:
+        dm = get_dataset_manager()
+        return dm.get_dataset_cards(dataset_name)
+    else:
+        # Fallback: use get_dataset function and remove is_train column
+        df = get_dataset(dataset_name, use_dynamic=False)
+        if df is not None and 'is_train' in df.columns:
+            df = df.drop('is_train', axis=1)
+        return df
+
+
+def get_model_data(model_id, data_type="all", use_dynamic=True):
+    """Get training, testing, or all data for a specific model.
+    
+    Flexible function to retrieve model-specific datasets with control
+    over train/test split.
+    
+    Args:
+        model_id (int): The model ID to retrieve data for.
+        data_type (str): Type of data to return:
+            - "train": Training data only (no is_train column)
+            - "test": Test data only (no is_train column)
+            - "all": Combined data (includes is_train column)
+            Defaults to "all".
+        use_dynamic (bool): Whether to use DatasetManager (True) or
+            fallback to legacy functions (False). Defaults to True.
+        
+    Returns:
+        pd.DataFrame or None: Requested dataset or None if model not found.
+            When data_type="all", includes 'is_train' column where:
+            - is_train=1: Training samples
+            - is_train=0: Test samples
+            
+    Raises:
+        ValueError: If data_type is not "train", "test", or "all".
+        
+    Example:
+        >>> # Get all data with train/test labels
+        >>> all_data = pad.get_model_data(16, "all")
+        >>> train_count = len(all_data[all_data['is_train'] == 1])
+        >>> test_count = len(all_data[all_data['is_train'] == 0])
+        >>> print(f"Model 16: {train_count} train, {test_count} test")
+        Model 16: 5923 train, 2078 test
+        
+        >>> # Get only training data
+        >>> train_data = pad.get_model_data(16, "train")
+        >>> print(f"Training samples: {len(train_data)}")
+        Training samples: 5923
+    """
+    if data_type not in ["train", "test", "all"]:
+        raise ValueError("data_type must be 'train', 'test', or 'all'")
+    
+    if use_dynamic:
+        dm = get_dataset_manager()
+        return dm.get_model_data(model_id, data_type)
+    else:
+        # Fallback: use original function and filter
+        df = get_dataset_from_model_id(model_id, use_dynamic=False)
+        if df is None:
+            return None
+            
+        if data_type == "train":
+            result = df[df['is_train'] == 1].copy()
+            return result.drop('is_train', axis=1)
+        elif data_type == "test":
+            result = df[df['is_train'] == 0].copy()
+            return result.drop('is_train', axis=1)
+        else:  # data_type == "all"
+            return df
+
+
+def get_dataset_info(name, use_dynamic=True):
+    """Get comprehensive information about a dataset.
+    
+    Provides rich metadata including catalog information, model associations,
+    and dataset URLs.
+    
+    Args:
+        name (str): Dataset name to look up.
+        use_dynamic (bool): Whether to use DatasetManager for rich metadata (True)
+            or basic static info only (False). Defaults to True.
+        
+    Returns:
+        dict: Dataset information including:
+            - name (str): Dataset name
+            - source (str): "catalog", "static", or "hybrid"
+            - description (str): Dataset description (if available)
+            - record_count (int): Total number of records
+            - models (list): Models using this dataset
+            - training_dataset_url (str): URL to training data
+            - test_dataset_url (str): URL to test data
+            - Additional catalog metadata (when use_dynamic=True)
+            
+    Example:
+        >>> info = pad.get_dataset_info("FHI2020_Stratified_Sampling")
+        >>> print(f"Dataset: {info['name']}")
+        Dataset: FHI2020_Stratified_Sampling
+        >>> print(f"Records: {info['record_count']}")
+        Records: 8001
+        >>> print(f"Used by {len(info['models'])} models")
+        Used by 4 models
+    """
+    if use_dynamic:
+        dm = get_dataset_manager()
+        return dm.get_dataset_info(name)
+    else:
+        # Fallback: get basic info from static mapping
+        df = get_dataset_list(use_dynamic=False)
+        dataset = df[df["Dataset Name"] == name]
+        
+        if len(dataset) == 0:
+            return {"name": name, "source": "not_found"}
+            
+        return {
+            "name": name,
+            "source": "static",
+            "training_dataset_url": dataset["Training Dataset"].values[0] if pd.notna(dataset["Training Dataset"].values[0]) else None,
+            "test_dataset_url": dataset["Test Dataset"].values[0] if pd.notna(dataset["Test Dataset"].values[0]) else None,
+            "models": dataset["Model ID"].values[0] if "Model ID" in dataset.columns else []
+        }
 
 
 def calculate_rmse(group, pred_col="prediction", actual_col="label"):
