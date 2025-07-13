@@ -675,10 +675,6 @@ def show_card(card_id=None, sample_id=None):
         >>> show_card(card_id=47918)
         # Shows interactive widget with card image and metadata table
         
-        >>> # Display card by sample ID (single card)
-        >>> show_card(sample_id=52677)
-        # Shows single card widget for sample 52677
-        
         >>> # Display cards by sample ID (multiple cards)
         >>> show_card(sample_id=67890)
         # Automatically shows all cards for sample 67890 in batch view
