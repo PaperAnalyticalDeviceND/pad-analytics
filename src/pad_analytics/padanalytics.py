@@ -1945,58 +1945,136 @@ def _predict_single_nn_with_interpreter(interpreter, image_url, labels, input_de
 
 
 def _apply_predictions_threaded_pls(dataset_df, model_id, max_workers=8):
-    """Optimized threaded processing for PLS models.
+    """Optimized batch processing for PLS models.
     
-    Uses ThreadPoolExecutor to process multiple PLS predictions in parallel.
-    Each thread loads the model once and reuses it.
+    Downloads the PLS model once and processes all predictions sequentially.
+    Since PLS models are typically faster and can't be easily parallelized,
+    this approach focuses on avoiding multiple model downloads.
     
     Args:
         dataset_df (pd.DataFrame): Dataset with 'id' and 'sample_name' columns
         model_id (int): PLS model ID
-        max_workers (int): Maximum number of worker threads
+        max_workers (int): Not used for PLS (kept for API compatibility)
         
     Returns:
         pd.DataFrame: Results with id, label, prediction columns
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import os
+    import tempfile
     
-    def predict_single_pls(row_data):
+    # Get model info once
+    model_df = get_model(model_id)
+    model_url = model_df.weights_url.values[0]
+    model_file = os.path.basename(model_url)
+    
+    # Download model if needed (once)
+    if not os.path.exists(model_file):
+        if pad_helper.pad_download(model_url):
+            print(f"PLS model {model_file} downloaded.")
+        else:
+            raise Exception(f"Failed to download PLS model: {model_url}")
+    
+    # Load PLS model once
+    try:
+        from . import pls_model
+        pls_conc = pls_model.pls(model_file)
+    except ImportError:
+        # Fallback to the current method if pls_model import fails
+        print("Warning: Using fallback PLS prediction method")
+        return _apply_predictions_pls_fallback(dataset_df, model_id)
+    
+    results = []
+    total_rows = len(dataset_df)
+    
+    print(f"Processing {total_rows} PLS predictions with shared model...")
+    
+    # Process each prediction using the shared model
+    for idx, (_, row) in enumerate(dataset_df.iterrows()):
         try:
-            card_id, sample_name = row_data
+            card_id = int(row["id"])
+            sample_name = row["sample_name"]
+            
+            # Get card info
+            card_df = get_card(card_id)
+            if card_df is None or card_df.empty:
+                print(f"Warning: Could not get card data for ID {card_id}")
+                continue
+            
+            # Get actual label
+            actual_label = card_df.quantity.values[0]
+            # Convert numpy types to native Python types
+            if hasattr(actual_label, 'item'):
+                actual_label = actual_label.item()
+            
+            # Get image URL and download image
+            image_url = "https://pad.crc.nd.edu/" + card_df.processed_file_location.values[0]
+            
+            # Use temporary directory for image processing
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+                temp_filename = temp_file.name
+            
+            try:
+                # Download image
+                download_file(
+                    image_url,
+                    os.path.basename(temp_filename),
+                    os.path.dirname(temp_filename),
+                )
+                
+                # Make prediction using shared model
+                prediction = pls_conc.quantity(temp_filename, standardize_names(sample_name))
+                
+                # Convert numpy types to native Python types
+                if hasattr(prediction, 'item'):
+                    prediction = prediction.item()
+                
+                results.append({
+                    'id': card_id,
+                    'label': actual_label,
+                    'prediction': float(prediction)
+                })
+                
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_filename):
+                    os.unlink(temp_filename)
+            
+            # Progress indicator
+            if (idx + 1) % 100 == 0:
+                print(f"Completed {idx + 1}/{total_rows} PLS predictions")
+                
+        except Exception as e:
+            print(f"Error processing card {row['id']}: {e}")
+            continue
+    
+    return pd.DataFrame(results)
+
+
+def _apply_predictions_pls_fallback(dataset_df, model_id):
+    """Fallback PLS processing using original predict() function."""
+    print("Using fallback sequential PLS processing...")
+    
+    results = []
+    total_rows = len(dataset_df)
+    
+    for idx, (_, row) in enumerate(dataset_df.iterrows()):
+        try:
+            card_id = int(row["id"])
+            sample_name = row["sample_name"]
             actual_label, prediction = predict(card_id, model_id, actual_api=sample_name)
             
-            return {
+            results.append({
                 'id': card_id,
                 'label': actual_label,
                 'prediction': float(prediction) if hasattr(prediction, 'item') else prediction
-            }
-        except Exception as e:
-            print(f"Error processing card {card_id}: {e}")
-            return None
-    
-    # Prepare data for threading
-    row_data = [(int(row["id"]), row["sample_name"]) for _, row in dataset_df.iterrows()]
-    
-    results = []
-    total_rows = len(row_data)
-    
-    print(f"Processing {total_rows} PLS predictions with {max_workers} workers...")
-    
-    # Use ThreadPoolExecutor for parallel processing
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Submit all tasks
-        future_to_data = {executor.submit(predict_single_pls, data): data for data in row_data}
-        
-        # Collect results as they complete
-        completed = 0
-        for future in as_completed(future_to_data):
-            completed += 1
-            if completed % 10 == 0:
-                print(f"Completed {completed}/{total_rows} predictions")
+            })
+            
+            if (idx + 1) % 50 == 0:
+                print(f"Completed {idx + 1}/{total_rows} predictions")
                 
-            result = future.result()
-            if result is not None:
-                results.append(result)
+        except Exception as e:
+            print(f"Error processing card {row['id']}: {e}")
+            continue
     
     return pd.DataFrame(results)
 
