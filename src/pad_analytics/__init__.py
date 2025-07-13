@@ -3,7 +3,7 @@
 A complete workflow for machine learning models using data from the PAD API v2.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Import all main functions from padanalytics module to package level
 try:
