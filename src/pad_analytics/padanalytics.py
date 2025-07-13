@@ -610,6 +610,32 @@ def create_image_widget_with_info(image_url, data_df):
 
 
 def show_card(card_id):
+    """Display a single PAD card with its image and metadata in Jupyter notebook.
+    
+    Creates an interactive widget showing the PAD card image alongside detailed
+    metadata including sample information, project details, and card status.
+    Designed for visual inspection and data exploration in research workflows.
+    
+    Args:
+        card_id (int): The unique card ID to display.
+        
+    Returns:
+        None: Displays the widget directly in the Jupyter notebook interface.
+        
+    Note:
+        This function requires a Jupyter notebook environment with ipywidgets.
+        If the card image is not available, a placeholder image will be shown.
+        
+    Example:
+        >>> # Display card with ID 12345
+        >>> show_card(12345)
+        # Shows interactive widget with card image and metadata table
+        
+        >>> # Card details displayed include:
+        >>> # - Card ID, Sample ID, Sample Name
+        >>> # - Quantity, Camera Type, Project Info
+        >>> # - Creation date, Notes, Issue status
+    """
     info = get_card(card_id)
 
     if info is None:
@@ -762,6 +788,37 @@ def create_tabs(df, group_column, images_per_row=5):
 
 
 def show_grouped_cards(df, group_column, images_per_row=5):
+    """Display multiple PAD cards organized by groups in a tabbed interface.
+    
+    Creates a tabbed visualization where cards are grouped by a specified column
+    and displayed as image grids. Each tab represents a different group value,
+    allowing easy comparison and exploration of cards by categories.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing card information. Must include
+            'processed_file_location' column for image URLs.
+        group_column (str): Column name to group cards by (e.g., 'sample_name',
+            'project.project_name', 'quantity').
+        images_per_row (int, optional): Number of card images to display per row
+            in each tab. Defaults to 5.
+            
+    Returns:
+        None: Displays the tabbed widget interface directly in Jupyter notebook.
+        
+    Note:
+        Requires Jupyter notebook environment with ipywidgets. The DataFrame
+        should contain card data with 'processed_file_location' for images.
+        
+    Example:
+        >>> # Group cards by sample name
+        >>> cards_df = get_project_cards(project_name="Drug_Study")
+        >>> show_grouped_cards(cards_df, 'sample_name', images_per_row=3)
+        # Creates tabs for each drug with 3 images per row
+        
+        >>> # Group by project with default 5 images per row
+        >>> show_grouped_cards(cards_df, 'project.project_name')
+        # Creates tabs for each project
+    """
     # Ensure we're working on a copy of the DataFrame to avoid SettingWithCopyWarning
     df = df.copy()
 
@@ -873,9 +930,34 @@ def get_card_by_sample_id(sample_id):
 
 
 def show_cards_from_df(cards_df):
-    """
-    Displays widgets for multiple cards based on the information in the DataFrame.
-    Assumes that all necessary fields are present in the DataFrame.
+    """Display multiple PAD cards from a DataFrame (batch visualization).
+    
+    Creates individual card widgets for each row in the provided DataFrame.
+    This is the most efficient way to display multiple cards when you already
+    have the card data loaded, as it avoids additional API calls.
+    
+    Args:
+        cards_df (pd.DataFrame): DataFrame containing card information. Should
+            include columns like 'id', 'sample_id', 'sample_name', 'quantity',
+            'processed_file_location', and other card metadata.
+            
+    Returns:
+        None: Displays card widgets sequentially in the Jupyter notebook.
+        
+    Note:
+        More efficient than show_cards() since data is already loaded.
+        Assumes all necessary card fields are present in the DataFrame.
+        Missing fields will display as 'N/A'.
+        
+    Example:
+        >>> # Display all cards from a project
+        >>> project_cards = get_project_cards(project_name="Quality_Control")
+        >>> show_cards_from_df(project_cards)
+        # Shows individual widgets for each card in the project
+        
+        >>> # Display cards from a dataset
+        >>> dataset_cards = get_dataset_cards("FHI2020_Stratified_Sampling")
+        >>> show_cards_from_df(dataset_cards[:10])  # Show first 10 cards
     """
     card_widgets = []
 
@@ -936,8 +1018,33 @@ def show_cards_from_df(cards_df):
 
 
 def show_cards(card_ids):
-    """
-    Displays widgets for multiple cards based on the list of card IDs.
+    """Display multiple PAD cards from a list of card IDs.
+    
+    Fetches card data for each ID via API calls and creates individual card
+    widgets for visualization. Handles missing or invalid card IDs gracefully
+    with error messages.
+    
+    Args:
+        card_ids (list): List of card IDs (integers) to display.
+        
+    Returns:
+        None: Displays card widgets sequentially in the Jupyter notebook.
+        Shows error messages for any invalid or missing card IDs.
+        
+    Note:
+        Less efficient than show_cards_from_df() due to individual API calls.
+        Use show_cards_from_df() when you already have the card data loaded.
+        
+    Example:
+        >>> # Display specific cards by ID
+        >>> card_list = [12345, 12346, 12347]
+        >>> show_cards(card_list)
+        # Shows individual widgets for each valid card
+        
+        >>> # Display cards from a filtered search
+        >>> aspirin_cards = get_card_by_sample_id("aspirin_sample_001")
+        >>> show_cards(aspirin_cards['id'].tolist())
+        # Shows all cards for aspirin samples
     """
     card_widgets = []
 
@@ -1327,6 +1434,42 @@ def predict(card_id, model_id, actual_api=None, verbose=False):
 
 
 def show_prediction(card_id, model_id):
+    """Display a PAD card with ML model prediction results.
+    
+    Shows the card image and metadata alongside machine learning prediction
+    results. Includes model information and formatted prediction output for
+    analysis and validation workflows.
+    
+    Args:
+        card_id (int): The unique card ID to analyze.
+        model_id (int): The model ID to use for prediction (e.g., 16 for
+            classification, 18 for concentration prediction).
+            
+    Returns:
+        None: Displays the prediction widget in the Jupyter notebook with:
+            - Card image and standard metadata
+            - Prediction result (formatted to 2 decimal places for numeric)
+            - Model file name and type information
+            
+    Note:
+        Requires Jupyter notebook environment. Combines card visualization
+        with ML prediction for research and validation workflows.
+        
+    Example:
+        >>> # Show classification prediction
+        >>> show_prediction(card_id=19208, model_id=16)
+        # Displays card with drug classification result
+        
+        >>> # Show concentration prediction  
+        >>> show_prediction(card_id=19208, model_id=18)
+        # Displays card with concentration prediction (e.g., "75.32")
+        
+        >>> # Widget shows:
+        >>> # - All standard card metadata
+        >>> # - Prediction: "Aspirin" or "75.32" 
+        >>> # - Model File: "24fhiNN1classifyAPI.tflite"
+        >>> # - Model Type: "classification" or "regression"
+    """
     info = get_card(card_id)
 
     if info is None:
