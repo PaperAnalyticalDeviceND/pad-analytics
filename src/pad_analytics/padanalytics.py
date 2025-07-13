@@ -576,7 +576,7 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
     <style>
         table {{
             font-family: sans-serif;
-            font-size: {11 if multi_card_mode else 14}px;
+            font-size: {13 if multi_card_mode else 14}px;
             border-collapse: collapse;
             width: {table_width};
             min-width: {300 if multi_card_mode else 500}px;
@@ -596,7 +596,7 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
             text-align: left;
             width: {80 if multi_card_mode else 120}px;
             padding-left: {8 if multi_card_mode else 20}px;
-            font-size: {10 if multi_card_mode else 14}px;
+            font-size: {12 if multi_card_mode else 14}px;
         }}
         td{{
             padding-left: {6 if multi_card_mode else 10}px;
