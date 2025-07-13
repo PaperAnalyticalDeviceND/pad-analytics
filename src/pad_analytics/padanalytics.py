@@ -525,7 +525,7 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
         # Balanced dimensions for multi-card display
         small_im_width = "300px"    # Standard image width
         small_im_max_width = "300px" 
-        table_width = "300px"        # Matching table width
+        table_width = "350px"        # Wider table for better content display
     else:
         # Standard widths for single card display (maintain existing behavior)
         small_im_width = "300px"
@@ -579,7 +579,7 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
             font-size: {13 if multi_card_mode else 14}px;
             border-collapse: collapse;
             width: {table_width};
-            min-width: {300 if multi_card_mode else 500}px;
+            min-width: {350 if multi_card_mode else 500}px;
             table-layout: {'fixed' if multi_card_mode else 'auto'};
         }}
         td, th {{
@@ -600,7 +600,7 @@ def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
         }}
         td{{
             padding-left: {6 if multi_card_mode else 10}px;
-            max-width: {150 if multi_card_mode else 300}px;
+            max-width: {180 if multi_card_mode else 300}px;
             text-overflow: ellipsis;
         }}
         tr:nth-child(even) {{
