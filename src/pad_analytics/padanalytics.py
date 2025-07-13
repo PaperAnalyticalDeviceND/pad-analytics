@@ -1974,13 +1974,12 @@ def _apply_predictions_threaded_pls(dataset_df, model_id, max_workers=8):
         else:
             raise Exception(f"Failed to download PLS model: {model_url}")
     
-    # Load PLS model once
+    # Load PLS model once (pls class is defined in this same file)
     try:
-        from . import pls_model
-        pls_conc = pls_model.pls(model_file)
-    except ImportError:
-        # Fallback to the current method if pls_model import fails
-        print("Warning: Using fallback PLS prediction method")
+        pls_conc = pls(model_file)
+    except Exception as e:
+        # Fallback to the current method if PLS model loading fails
+        print(f"Warning: Failed to load PLS model ({e}), using fallback method")
         return _apply_predictions_pls_fallback(dataset_df, model_id)
     
     results = []
