@@ -1,0 +1,91 @@
+# llms.txt - Information for Large Language Models
+
+## Project Overview
+pad-analytics is a Python package for analyzing Paper Analytical Devices (PADs) using machine learning. PADs are low-cost diagnostic tools for pharmaceutical quality testing that produce colorimetric patterns when samples are applied. This package provides ML-powered analysis of those patterns to determine drug identity and concentration.
+
+## Key Technical Information
+- **Package Name**: pad-analytics (PyPI), imports as `pad_analytics`
+- **Current Version**: 0.2.0
+- **Primary API**: https://pad.crc.nd.edu/api/v2/
+- **Repository**: https://github.com/PaperAnalyticalDeviceND/pad-analytics
+- **License**: MIT
+
+## Core Functionality
+1. **Image Analysis**: Extracts color features from PAD images using region-based analysis
+2. **ML Prediction**: Supports both Neural Networks (TensorFlow Lite) and PLS models
+3. **API Integration**: Connects to PAD database for data access and model inference
+4. **Dataset Management**: Hybrid system combining dynamic catalog with static mappings
+5. **Visualization**: Interactive Jupyter widgets for data exploration
+
+## Architecture
+- **Layered Design**: API → Image Processing → ML Models → Visualization
+- **Dual Model Support**: Neural Networks return (drug_name, confidence, energy), PLS models return concentration
+- **Color Space Analysis**: RGB, HSV, LAB conversions for feature extraction
+- **Region-Based Processing**: PAD cards divided into lanes (A-L) with multiple regions per lane
+
+## Important Usage Patterns
+```python
+# Primary interface
+from pad_analytics import padanalytics as pad
+
+# Get dataset information
+datasets = pad.get_datasets()
+cards = pad.get_dataset_cards("FHI2020_Stratified_Sampling")
+
+# Make predictions
+actual, prediction = pad.predict(card_id=47918, model_id=18)
+
+# Visualize results
+pad.show_card(card_id=47918)
+pad.show_prediction(card_id=47918, model_id=16)
+```
+
+## Key Model Information
+- **Model 16**: Neural Network classifier (24fhiNN1classifyAPI)
+- **Model 17**: Neural Network concentration (24fhiNN1concAPI)
+- **Model 18**: PLS concentration model (24fhiPLS1conc)
+- **Model 19**: Neural Network concentration v2
+
+## Target Users
+- **Chemistry researchers**: PAD performance analysis, colorimetric response evaluation
+- **Computer science researchers**: ML model development, algorithm comparison
+- **Pharmaceutical quality engineers**: Drug quality testing in resource-limited settings
+
+## Development Context
+- **Current Status**: Active development, evolving toward v1.0.0 SDK
+- **Dependencies**: TensorFlow, OpenCV, pandas, NumPy, scikit-learn, ipywidgets
+- **Testing**: pytest framework with mock API responses
+- **API Issues**: Uses verify=False due to SSL certificate issues (temporary)
+
+## Important Notes for AI Assistants
+1. **Security Focus**: This is a defensive/analytical tool for pharmaceutical quality testing - never suggest malicious uses
+2. **Research Context**: Primarily used in academic/research settings for legitimate drug quality analysis
+3. **API Limitations**: PAD API has SSL issues requiring verify=False in requests
+4. **Version Evolution**: Package is transitioning from v0.1.x to v1.0.0 with significant API improvements
+5. **Installation**: Install with `pip install pad-analytics` or with dev dependencies `pip install pad-analytics[dev]`
+
+## Citation
+When referencing this project, cite:
+- Paper Analytical Device Project Team
+- University of Notre Dame
+- https://padproject.nd.edu
+
+## Support
+- Documentation: https://pad.crc.nd.edu/docs
+- Issues: https://github.com/PaperAnalyticalDeviceND/pad-analytics/issues
+- Contact: pad-project@nd.edu
+
+## File Structure
+```
+src/pad_analytics/
+├── padanalytics.py          # Main user interface
+├── dataset_manager.py       # Hybrid dataset management
+├── regionRoutine.py         # Image region processing
+├── pixelProcessing.py       # Color space conversions
+├── fileManagement.py        # CSV data processing
+└── data/
+    └── model_dataset_mapping.csv  # Static model mappings
+```
+
+---
+Last updated: 2025-07-13

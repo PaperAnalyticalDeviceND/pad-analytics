@@ -1481,6 +1481,66 @@ def nn_predict(image_url, model_path, labels):
 
 
 def predict(card_id, model_id, actual_api=None, verbose=False):
+    """Make ML model predictions on a PAD card image.
+    
+    Downloads and runs machine learning models to predict either drug classification
+    or concentration from PAD colorimetric patterns. Automatically detects model
+    type (Neural Network vs PLS) and handles model downloads, image processing,
+    and prediction execution.
+    
+    Args:
+        card_id (int): The unique card ID to analyze from the PAD database.
+        model_id (int): The model ID to use for prediction. Common models:
+            - 16: Neural Network classifier (24fhiNN1classifyAPI)
+            - 17: Neural Network concentration (24fhiNN1concAPI)
+            - 18: PLS concentration model (24fhiPLS1conc)
+            - 19: Neural Network concentration v2
+        actual_api (str, optional): Override for the actual drug name if different
+            from the card's sample_name. Used for label standardization.
+        verbose (bool, optional): If True, prints detailed model information
+            including model type, URL, and file name. Defaults to False.
+            
+    Returns:
+        tuple: A 2-element tuple containing:
+            - actual_label (str or float): Ground truth value. For classification
+              models, returns standardized drug name (e.g., "aspirin"). For
+              concentration models, returns actual concentration as float.
+            - prediction (str/float or tuple): Model prediction result:
+                * Neural Network classification: (drug_name, confidence, energy)
+                * Neural Network concentration: (concentration, confidence, energy)  
+                * PLS models: concentration as float
+                
+    Raises:
+        Exception: If model download fails or prediction execution fails.
+        FileNotFoundError: If required model files cannot be accessed.
+        
+    Note:
+        - Model files are automatically downloaded and cached locally
+        - Neural Network models use TensorFlow Lite (.tflite files)
+        - PLS models use custom concentration prediction algorithms
+        - Image processing includes automatic PAD region detection and color analysis
+        - Label standardization is applied for consistent drug name formatting
+        
+    Example:
+        >>> # Drug classification with Neural Network
+        >>> actual, prediction = predict(card_id=47918, model_id=16)
+        >>> print(f"Actual: {actual}")
+        Actual: aspirin
+        >>> print(f"Predicted: {prediction[0]}, Confidence: {prediction[1]:.2f}")
+        Predicted: aspirin, Confidence: 0.95
+        
+        >>> # Concentration prediction with PLS model
+        >>> actual, prediction = predict(card_id=47918, model_id=18, verbose=True)
+        Model Type: pls
+        Model URL: https://pad.crc.nd.edu/models/24fhiPLS1conc.pkl
+        Model File: 24fhiPLS1conc.pkl
+        >>> print(f"Actual: {actual:.2f} mg, Predicted: {prediction:.2f} mg")
+        Actual: 75.50 mg, Predicted: 73.21 mg
+        
+        >>> # Override actual label for comparison studies
+        >>> actual, pred = predict(card_id=47918, model_id=16, actual_api="ibuprofen")
+        >>> # actual will be "ibuprofen" instead of card's sample_name
+    """
 
     pad_url = "https://pad.crc.nd.edu/"
 
@@ -1720,15 +1780,73 @@ import pandas as pd
 
 
 def apply_predictions_to_dataframe(dataset_df, model_id):
-    """
-    Applies the `predict` function to each row of a dataframe based on an 'id' column.
-
-    Parameters:
-        dataset_df (pd.DataFrame): The input dataframe containing an 'id' column.
-        model_id (int): The model identifier to be passed to the `predict` function.
-
+    """Apply ML model predictions to an entire dataset using batch processing.
+    
+    Efficiently processes multiple PAD cards by applying the predict() function
+    to each row in a dataset. Handles both classification and concentration models
+    with automatic result formatting. Optimized for research workflows requiring
+    predictions on large datasets.
+    
+    Args:
+        dataset_df (pd.DataFrame): Input dataset containing PAD card information.
+            Must include the following columns:
+            - 'id': Card IDs for prediction (int)
+            - 'sample_name': Drug names for label standardization (str)
+            Additional columns are preserved in the output.
+        model_id (int): The model ID to use for all predictions. Common models:
+            - 16: Neural Network classifier (24fhiNN1classifyAPI)
+            - 17: Neural Network concentration (24fhiNN1concAPI)
+            - 18: PLS concentration model (24fhiPLS1conc)
+            - 19: Neural Network concentration v2
+            
     Returns:
-        pd.DataFrame: A dataframe with additional 'actual_label' and 'prediction' columns.
+        pd.DataFrame: Results dataframe with prediction columns added:
+            - 'id': Original card ID (int)
+            - 'label': Actual/ground truth values (str for classification, float for concentration)
+            - 'prediction': Model predictions (str for classification, float for concentration)
+            - 'confidence': Prediction confidence scores (float, only for Neural Network models)
+            
+        For Neural Network models, the prediction tuple (drug, confidence, energy) is
+        automatically unpacked into separate 'prediction' and 'confidence' columns.
+        PLS models only return prediction values without confidence scores.
+        
+    Raises:
+        KeyError: If required columns ('id', 'sample_name') are missing from dataset_df.
+        Exception: If prediction fails for any card in the dataset.
+        
+    Note:
+        - Function processes cards sequentially, not in parallel
+        - Failed predictions for individual cards will raise exceptions
+        - Model files are automatically downloaded and cached during processing
+        - Large datasets may take considerable time due to model inference overhead
+        - Progress is not displayed - use verbose=True in predict() for debugging
+        
+    Example:
+        >>> # Load a dataset for batch prediction
+        >>> dataset = get_dataset_cards("FHI2020_Stratified_Sampling")
+        >>> print(f"Dataset shape: {dataset.shape}")
+        Dataset shape: (8001, 8)
+        
+        >>> # Apply classification model to subset
+        >>> sample_data = dataset.head(10)
+        >>> results = apply_predictions_to_dataframe(sample_data, model_id=16)
+        >>> print(results[['id', 'label', 'prediction', 'confidence']].head(3))
+            id    label  prediction  confidence
+        0   19208  aspirin     aspirin        0.95
+        1   19209  aspirin     aspirin        0.92  
+        2   19210  ibuprofen   ibuprofen      0.88
+        
+        >>> # Apply concentration model (PLS)
+        >>> conc_results = apply_predictions_to_dataframe(sample_data, model_id=18)
+        >>> print(conc_results[['id', 'label', 'prediction']].head(3))
+            id    label  prediction
+        0   19208    75.0       73.21
+        1   19209    75.0       74.85
+        2   19210    50.0       48.92
+        
+        >>> # Process full dataset (warning: takes time!)
+        >>> # full_results = apply_predictions_to_dataframe(dataset, model_id=16)
+        >>> # print(f"Processed {len(full_results)} predictions")
     """
     # def apply_predict(row):
     #     # Call the predict function and unpack the results
