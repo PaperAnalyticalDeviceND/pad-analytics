@@ -727,7 +727,7 @@ def show_card(card_id=None, sample_id=None):
         "ID": [display_id],
         "Sample ID": [safe_get("sample_id")],
         "Sample Name": [safe_get("sample_name")],
-        "Quantity": [safe_get("quantity")],
+        "Quantity": [f"{safe_get('quantity')}%" if safe_get('quantity') != 'N/A' else 'N/A'],
         "Camera Type": [safe_get("camera_type_1")],
         "Issue": [safe_get("issue.name", safe_get("issue"))],
         "Project Name": [safe_get("project.project_name")],
@@ -1053,7 +1053,7 @@ def show_cards_from_df(cards_df):
             "ID": [id],
             "Sample ID": [sample_id],
             "Sample Name": [sample_name],
-            "Quantity": [quantity],
+            "Quantity": [f"{quantity}%" if quantity != 'N/A' and quantity is not None else 'N/A'],
             "Camera Type": [camera_type],
             "Issue": [issue],
             "Project Name": [project_name],
@@ -1198,7 +1198,7 @@ def show_cards(card_ids=None, sample_ids=None):
             "ID": [card_id],
             "Sample ID": [safe_get("sample_id")],
             "Sample Name": [safe_get("sample_name")],
-            "Quantity": [safe_get("quantity")],
+            "Quantity": [f"{safe_get('quantity')}%" if safe_get('quantity') != 'N/A' else 'N/A'],
             "Camera Type": [safe_get("camera_type_1")],
             "Issue": [safe_get("issue.name", safe_get("issue"))],
             "Project Name": [safe_get("project.project_name")],
@@ -1580,6 +1580,9 @@ def predict(card_id, model_id, actual_api=None, verbose=False):
 
     if labels_type == "concentration":
         actual_label = card_df.quantity.values[0]
+        # Convert numpy types to native Python types
+        if hasattr(actual_label, 'item'):
+            actual_label = actual_label.item()
     else:
         actual_label = actual_api
 
@@ -1592,6 +1595,13 @@ def predict(card_id, model_id, actual_api=None, verbose=False):
     # make prediction
     if model_type == "tf_lite":
         prediction = nn_predict(image_url, model_file, labels)
+        # Convert numpy types in the tuple to native Python types
+        if isinstance(prediction, tuple) and len(prediction) == 3:
+            drug_name, probability, energy = prediction
+            # Convert probability and energy to native Python floats
+            probability = float(probability) if hasattr(probability, 'item') else probability
+            energy = float(energy) if hasattr(energy, 'item') else energy
+            prediction = (drug_name, probability, energy)
     else:
         # Use temporary directory for better cross-platform compatibility
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
@@ -1605,6 +1615,9 @@ def predict(card_id, model_id, actual_api=None, verbose=False):
             )
             pls_conc = pls(model_file)
             prediction = pls_conc.quantity(temp_filename, actual_api)
+            # Convert numpy types to native Python types
+            if hasattr(prediction, 'item'):
+                prediction = prediction.item()
         finally:
             # Clean up temporary file
             if os.path.exists(temp_filename):
