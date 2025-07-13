@@ -1632,7 +1632,7 @@ def show_prediction(card_id=None, sample_id=None, model_id=None):
             - Card image and standard metadata
             - Prediction result formatted as:
                 * Neural Network: "drug_name (confidence=XX.XX%)" e.g., "aspirin (confidence=95.32%)"
-                * PLS models: concentration with 2 decimal places e.g., "73.21"
+                * PLS models: concentration with % unit e.g., "73.21%"
             - Model file name and type information
             
     Raises:
@@ -1655,7 +1655,7 @@ def show_prediction(card_id=None, sample_id=None, model_id=None):
         
         >>> # Widget shows:
         >>> # - All standard card metadata
-        >>> # - Prediction: "aspirin (confidence=95.32%)" for NN or "75.32" for PLS
+        >>> # - Prediction: "aspirin (confidence=95.32%)" for NN or "75.32%" for PLS
         >>> # - Model File: "24fhiNN1classifyAPI.tflite"
         >>> # - Model Type: "tf_lite" or "pls"
     """
@@ -1712,8 +1712,8 @@ def show_prediction(card_id=None, sample_id=None, model_id=None):
     _, prediction = predict(card_id, model_id)
     # Handle different prediction formats
     if isinstance(prediction, float):
-        # PLS model - format concentration with 2 decimals
-        prediction = str(round(prediction, 2))
+        # PLS model - format concentration with 2 decimals and % unit
+        prediction = f"{prediction:.2f}%"
     elif isinstance(prediction, tuple) and len(prediction) == 3:
         # Neural Network model - extract drug name and confidence
         drug_name, confidence, energy = prediction
@@ -1725,7 +1725,7 @@ def show_prediction(card_id=None, sample_id=None, model_id=None):
         "ID": [display_id],
         "Sample ID": [safe_get("sample_id")],
         "Sample Name": [safe_get("sample_name")],
-        "Quantity": [safe_get("quantity")],
+        "Quantity": [f"{safe_get('quantity')}%" if safe_get('quantity') != 'N/A' else 'N/A'],
         "Prediction": [prediction],
         "Pred. Model File": [model_file],
         "Pred. Model type": [model_type],
