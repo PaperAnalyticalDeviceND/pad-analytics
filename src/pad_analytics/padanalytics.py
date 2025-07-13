@@ -512,28 +512,50 @@ def load_image_from_url(image_url):
 
 
 # Function to create a widget that shows the image and its related data
-def create_image_widget_with_info(image_url, data_df):
-
-    small_im_width = 300
-    full_im_width = 800
+def create_image_widget_with_info(image_url, data_df, multi_card_mode=False):
+    """Create responsive image widget that adapts to single or multi-card display.
+    
+    Args:
+        image_url (str): URL to the PAD image
+        data_df (pd.DataFrame): Card metadata
+        multi_card_mode (bool): If True, uses responsive layout for multi-card display
+    """
+    # Responsive dimensions based on display mode
+    if multi_card_mode:
+        # Flexible widths for multi-card display
+        small_im_width = "100%"  # Will be constrained by container
+        small_im_max_width = "250px"  # Maximum width to prevent oversizing
+        table_width = "100%"  # Flexible table width
+    else:
+        # Fixed widths for single card display (maintain existing behavior)
+        small_im_width = "300px"
+        small_im_max_width = "300px"
+        table_width = "500px"
+    
+    full_im_width = 800  # Always use fixed width for zoom overlay
     background_color_field = "#5c6e62"
     background_color_value = "#f9f9f9"
     image_id = data_df.ID.values[0]
 
-    # Create an HTML widget with JavaScript for image zoom on click
+    # Create responsive HTML widget with JavaScript for image zoom on click
+    image_style = f"width:{small_im_width}; max-width:{small_im_max_width}; height:auto; cursor: pointer;"
+    
     zoomable_image_html = f"""
-    <div id="imageContainer_{image_id}">    
-      <img id="zoomableImage_{image_id}" src="{image_url}" alt="Image" style="width:{small_im_width}px; cursor: pointer;" 
+    <div id="imageContainer_{image_id}" style="display: flex; justify-content: center; align-items: center;">    
+      <img id="zoomableImage_{image_id}" src="{image_url}" alt="Image" style="{image_style}" 
           onclick="
               var img = document.getElementById('zoomableImage_{image_id}');
               var overlay = document.getElementById('overlay_{image_id}');
-              if (img.style.width == '{small_im_width}px') {{
+              var currentWidth = img.style.width;
+              if (currentWidth === '{small_im_width}' || currentWidth.includes('%')) {{
                   img.style.width = '{full_im_width}px';  // Full size image width
+                  img.style.maxWidth = 'none';  // Remove max-width constraint for zoom
                   overlay.style.display = 'flex';  // Show overlay
                   overlay.style.alignItems = 'flex-start';  // Align the image at the top
                   overlay.appendChild(img);  // Move image to overlay
               }} else {{
-                  img.style.width = '{small_im_width}px';  // Small size image width
+                  img.style.width = '{small_im_width}';  // Restore responsive width
+                  img.style.maxWidth = '{small_im_max_width}';  // Restore max-width constraint
                   document.getElementById('imageContainer_{image_id}').appendChild(img);  // Move image back to grid
                   overlay.style.display = 'none';  // Hide overlay
               }}
@@ -551,14 +573,15 @@ def create_image_widget_with_info(image_url, data_df):
 
     # Arrange the clickable image in a vertical box (this will be the first column)
     image_column = widgets.VBox([img_widget])
-    # Create a DataFrame-like table using HTML with field names as row headers
+    # Create responsive DataFrame-like table using HTML with field names as row headers
     table_style = f"""
     <style>
         table {{
             font-family: sans-serif;
-            font-size: 14px;
+            font-size: {12 if multi_card_mode else 14}px;
             border-collapse: collapse;
-            width: 500px;
+            width: {table_width};
+            min-width: {250 if multi_card_mode else 500}px;
         }}
         td, th {{
             border: 1px solid #dddddd;
@@ -602,8 +625,16 @@ def create_image_widget_with_info(image_url, data_df):
     # Create HTML widget for the table
     info_table = widgets.HTML(table_html)
 
-    # Arrange the two columns (image and info) side by side in a horizontal box
-    columns = widgets.HBox([image_column, info_table])
+    # Arrange the two columns (image and info) side by side with responsive layout
+    if multi_card_mode:
+        # Use flexible layout for multi-card mode
+        columns = widgets.HBox([image_column, info_table], 
+                              layout=widgets.Layout(width='100%', 
+                                                   display='flex',
+                                                   flex_flow='row wrap'))
+    else:
+        # Use standard layout for single card mode
+        columns = widgets.HBox([image_column, info_table])
 
     # Display the ID label above the columns
     return widgets.VBox([id_label, columns])
@@ -1041,20 +1072,26 @@ def show_cards_from_df(cards_df):
                 "https://via.placeholder.com/300"  # Use placeholder if no image URL
             )
 
-        # Create the widget for this card and add it to the list
-        card_widget = create_image_widget_with_info(image_url, data_df)
+        # Create the widget for this card with multi-card mode enabled
+        card_widget = create_image_widget_with_info(image_url, data_df, multi_card_mode=True)
         card_widgets.append(card_widget)
 
-    # Create a layout to display the cards in a grid-like format
-    # Display the widgets in rows of two or three cards per row
+    # Create a responsive layout to display the cards
+    # Use responsive grid that adapts to available space
     max_cards_per_row = 2  # Adjust how many cards per row
     card_rows = [
-        widgets.HBox(card_widgets[i : i + max_cards_per_row])
+        widgets.HBox(card_widgets[i : i + max_cards_per_row],
+                    layout=widgets.Layout(width='100%', 
+                                         display='flex',
+                                         flex_flow='row wrap',
+                                         justify_content='space-around'))
         for i in range(0, len(card_widgets), max_cards_per_row)
     ]
 
-    # Display the rows of widgets vertically
-    display(widgets.VBox(card_rows))
+    # Display the rows of widgets vertically with responsive container
+    display(widgets.VBox(card_rows, 
+                        layout=widgets.Layout(width='100%',
+                                             overflow='hidden')))
 
 
 def show_cards(card_ids):
