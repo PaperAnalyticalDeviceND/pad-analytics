@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="pad-analytics",
-    version="0.2.0",
+    version="0.2.1",
     author="Paper Analytical Device Project Team",
     author_email="pad-project@nd.edu",
     description="Python tools for analyzing Paper Analytical Devices (PADs) to detect and quantify pharmaceutical compounds through colorimetric analysis",
