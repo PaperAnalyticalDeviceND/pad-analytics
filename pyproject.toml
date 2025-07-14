@@ -29,7 +29,7 @@ classifiers = [
 
 dependencies = [
     "keras>=2.14.0",  # Note: Keras 2.x has known vulnerabilities, upgrade to 3.9.0+ when possible
-    "tensorflow>=2.14.1",  # 2.14.1+ fixes CVE-2023-38546, CVE-2023-38545
+    "tensorflow>=2.14.0",  # 2.14.0+ with GPU support
     "pandas>=1.3.0",
     "numpy>=1.21.0",
     "scikit-learn>=0.24.0",

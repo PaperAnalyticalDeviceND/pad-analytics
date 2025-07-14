@@ -32,7 +32,7 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        "tensorflow>=2.13.0",
+        "tensorflow>=2.14.0",
         "pandas>=1.3.0",
         "numpy>=1.21.0,<2.0.0",
         "scikit-learn>=0.24.0",
