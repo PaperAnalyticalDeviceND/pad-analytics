@@ -316,30 +316,14 @@ def get_project_cards(project_name=None, project_ids=None):
 #     return get_data_api(request_url, f"card {card_id}")
 
 
-def get_card_by_id(card_id):
-    """Get a specific card by its ID.
-    
-    Retrieves detailed information about a single PAD card using its unique identifier.
+def _get_card_by_id(card_id):
+    """Internal function to get a specific card by its ID.
     
     Args:
         card_id (int): The unique card ID to retrieve.
         
     Returns:
-        pd.DataFrame: Single-row DataFrame with card information including:
-            - id: Card ID
-            - sample_id: Associated sample ID
-            - sample_name: Drug/sample name
-            - quantity: Concentration value
-            - url: Image URL
-            - project_id: Associated project
-            - Additional metadata
-            
-    Example:
-        >>> card = pad.get_card_by_id(15589)
-        >>> print(f"Card for sample: {card['sample_name'].iloc[0]}")
-        Card for sample: hydroxychloroquine
-        >>> print(f"Concentration: {card['quantity'].iloc[0]}")
-        Concentration: 100
+        pd.DataFrame: Single-row DataFrame with card information.
     """
     request_url = f"{API_URL}/cards/{card_id}"
     return get_data_api(request_url, f"card {card_id}")
@@ -380,11 +364,11 @@ def get_card(card_id=None, sample_id=None):
     """
     if card_id:
         # Get card by card_id
-        return get_card_by_id(card_id)
+        return _get_card_by_id(card_id)
 
     elif sample_id:
         # Get card samples by sample_id
-        return get_card_by_sample_id(sample_id)
+        return _get_card_by_sample_id(sample_id)
     else:
         raise ValueError("You must provide either card_id or sample_id")
 
@@ -914,40 +898,17 @@ def standardize_names(name):
 
 
 # Extended function to get project cards for either a single project ID or multiple project IDs
-def get_card_by_sample_id(sample_id):
-    """Get card(s) associated with a specific sample ID.
-    
-    Retrieves all cards that are associated with the given sample ID using
-    the PAD API v3. Multiple cards may exist for a single sample if it was 
-    processed multiple times or under different conditions.
+def _get_card_by_sample_id(sample_id):
+    """Internal function to get card(s) associated with a specific sample ID.
     
     Args:
         sample_id (int): The sample ID to search for.
         
     Returns:
-        pd.DataFrame: DataFrame with matching cards. Columns include:
-            - id: Card ID
-            - sample_id: Sample identifier (will match input)
-            - sample_name: Drug/sample name
-            - quantity: Concentration
-            - url: Image URL
-            - project_id: Associated project
-            - Additional metadata from nested API structure
-            
+        pd.DataFrame: DataFrame with matching cards.
+        
     Raises:
         Exception: If API request fails or returns error.
-        
-    Example:
-        >>> cards = pad.get_card_by_sample_id(53787)
-        >>> print(f"Found {len(cards)} cards for sample 47918")
-        Found 1 cards for sample 53787
-        >>> print(cards[['id', 'sample_name', 'quantity']])
-            id         sample_name  quantity
-        0  15589  hydroxychloroquine       100
-        
-    Note:
-        This function uses PAD API v3 endpoint which provides more detailed
-        card information including nested project and sample data.
     """
 
     # Make API request
