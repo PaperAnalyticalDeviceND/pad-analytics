@@ -95,6 +95,29 @@ if _PADANALYTICS_IMPORTED:
         "standardize_names",
     ])
 
+# Phase 1: Data Caching System (NEW in v0.3.0)
+try:
+    from .cache_manager import CacheManager
+    from .cached_dataset import CachedDataset, create_cached_dataset
+    from .cached_predictions import (
+        predict_with_cache,
+        apply_predictions_to_dataframe_cached,
+        get_cache_status
+    )
+    __all__.extend([
+        "CacheManager",
+        "CachedDataset", 
+        "create_cached_dataset",
+        "predict_with_cache",
+        "apply_predictions_to_dataframe_cached",
+        "get_cache_status"
+    ])
+    _CACHING_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import caching system: {e}")
+    _CACHING_IMPORTED = False
+
 # Add available submodules
 for module_name in ["pad_analysis", "pad_helper", "fileManagement", "intensityFind", "pixelProcessing", "regionRoutine"]:
     if module_name in globals():
