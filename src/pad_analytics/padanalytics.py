@@ -542,50 +542,149 @@ def get_project_by_name(project_name):
     return project
 
 
-def get_project(id=None, name=None):
-    """Get a project by ID or name (flexible interface).
-    
-    Convenience function that allows retrieving a project using either its
-    ID or name. Automatically routes to the appropriate specific function.
+def get_project(project=None):
+    """Get one or more projects with flexible input handling.
     
     Args:
-        id (int, optional): The project ID to retrieve.
-        name (str, optional): The project name to search for.
+        project: Project identifier(s). Can be:
+            - int: Single project ID (5)
+            - str: Single project name ("AMR Kenya")
+            - list[int]: Multiple project IDs [5, 4, 1]
+            - list[str]: Multiple project names ["AMR Kenya", "AirGap"]
+            - list[mixed]: Mixed IDs and names ["AMR Kenya", 4, "AirGap"]
+            - None: All projects
         
     Returns:
-        pd.DataFrame: Project information. Format depends on lookup method:
-            - By ID: Single project with detailed information
-            - By name: Matching project(s) from filtered list
+        pd.DataFrame: Project(s) information. Empty DataFrame if no valid
+            projects found.
             
-    Raises:
-        ValueError: If neither id nor name is provided.
-        
     Note:
-        You must provide exactly one parameter (either id OR name).
+        Uses "skip and continue" approach - invalid projects are skipped with
+        warning messages, but valid projects are still processed.
         
     Example:
-        >>> # Get by ID
-        >>> project = get_project(id=1)
-        >>> print(project['project_name'].iloc[0])
-        Pharmaceutical_QC
+        >>> # Single project by ID
+        >>> project = get_project(5)
         
-        >>> # Get by name
-        >>> project = get_project(name="Pharmaceutical_QC")
-        >>> print(project['id'].iloc[0])
-        1
+        >>> # Single project by name
+        >>> project = get_project("AMR Kenya")
         
-        >>> # Error case
-        >>> project = get_project()  # Raises ValueError
-        ValueError: You must provide either project_id or project_name
+        >>> # Multiple projects by name
+        >>> projects = get_project(["AMR Kenya", "AirGap"])
+        
+        >>> # Mixed IDs and names
+        >>> projects = get_project(["AMR Kenya", 4, "AirGap"])
+        
+        >>> # All projects
+        >>> projects = get_project()  # Same as get_projects()
     """
-    if id:
-        # Get project by ID
-        return get_project_by_id(id)
-    elif name:
-        # Get project by project_name
-        return get_project_by_name(name)
+    
+    def _resolve_project_identifier(proj):
+        """Resolve a project name or ID to project information.
+        
+        Returns:
+            tuple: (project_dataframe, success)
+        """
+        if isinstance(proj, int):
+            # It's a project ID
+            try:
+                result = get_project_by_id(proj)
+                if result is not None and len(result) > 0:
+                    return result, True
+                else:
+                    print(f"⚠️  Project ID {proj} not found. Please check the ID and try again.")
+                    return pd.DataFrame(), False
+            except Exception:
+                print(f"⚠️  Error retrieving project ID {proj}.")
+                return pd.DataFrame(), False
+                
+        elif isinstance(proj, str):
+            # It's a project name
+            try:
+                result = get_project_by_name(proj)
+                if result is not None and len(result) > 0:
+                    return result, True
+                else:
+                    print(f"⚠️  Project '{proj}' not found. Please check the project name and try again.")
+                    return pd.DataFrame(), False
+            except Exception:
+                print(f"⚠️  Error retrieving project '{proj}'.")
+                return pd.DataFrame(), False
+        else:
+            print(f"⚠️  Invalid project type: {type(proj)}. Must be string or integer.")
+            return pd.DataFrame(), False
+    
+    # Parameter validation
+    if project is None:
+        # Return all projects
+        return get_projects()
+    
+    # Normalize input to list
+    if isinstance(project, (str, int)):
+        project_list = [project]
+    elif isinstance(project, list):
+        if len(project) == 0:
+            print("⚠️  Empty project list provided.")
+            return pd.DataFrame()
+        project_list = project
     else:
-        raise ValueError("You must provide either project_id or project_name")
+        print(f"⚠️  Invalid project parameter type: {type(project)}. Must be string, integer, or list.")
+        return pd.DataFrame()
+    
+    # Validate list contents
+    for item in project_list:
+        if not isinstance(item, (str, int)):
+            print(f"⚠️  Invalid item in project list: {item} (type: {type(item)}). All items must be strings or integers.")
+            return pd.DataFrame()
+    
+    # Process each project
+    all_projects = []
+    successful_projects = []
+    failed_projects = []
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_projects = []
+    for p in project_list:
+        if p not in seen:
+            unique_projects.append(p)
+            seen.add(p)
+    
+    for proj in unique_projects:
+        # Resolve project
+        project_df, success = _resolve_project_identifier(proj)
+        
+        if success:
+            all_projects.append(project_df)
+            if isinstance(proj, str):
+                successful_projects.append(f"'{proj}'")
+            else:
+                successful_projects.append(str(proj))
+            print(f"✅ Found project: {proj}")
+        else:
+            failed_projects.append(proj)
+    
+    # Combine results
+    if all_projects:
+        combined_df = pd.concat(all_projects, ignore_index=True)
+        
+        # Print summary for multiple projects
+        if len(unique_projects) > 1:
+            total_requested = len(unique_projects)
+            successful_count = len(successful_projects)
+            
+            if successful_count < total_requested:
+                print(f"ℹ️  Found {successful_count} out of {total_requested} requested projects.")
+            
+        return combined_df
+    else:
+        # No projects found
+        if len(unique_projects) == 1:
+            # Single project not found (already messaged)
+            return pd.DataFrame()
+        else:
+            print("ℹ️  No valid projects found from the requested list.")
+            return pd.DataFrame()
 
 
 # Function to load image from URL
