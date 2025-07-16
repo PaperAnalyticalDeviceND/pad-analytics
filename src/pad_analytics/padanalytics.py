@@ -262,100 +262,153 @@ def get_projects():
     return projects
 
 
-# Extended function to get project cards for either a single project ID or multiple project IDs
-def get_project_cards(project_name=None, project_ids=None):
-    """Get all cards (data samples) belonging to specific project(s).
-    
-    Retrieves cards from one or more projects. You can specify either a single
-    project by name or multiple projects by providing a list of project IDs.
+def get_project_cards(project=None):
+    """Get cards from one or more projects with flexible input handling.
     
     Args:
-        project_name (str, optional): Name of the project to get cards from.
-        project_ids (list, optional): List of project IDs to get cards from.
+        project: Project identifier(s). Can be:
+            - str: Single project name ("AMR Kenya")
+            - int: Single project ID (5)
+            - list[str]: Multiple project names ["AMR Kenya", "AirGap"]
+            - list[int]: Multiple project IDs [5, 4]
+            - list[mixed]: Mixed names and IDs ["AMR Kenya", 4]
+            - None: All projects (with warning)
         
     Returns:
-        pd.DataFrame: Combined DataFrame with cards from specified project(s).
-            Columns include:
-            - id: Card ID
-            - sample_id: Sample identifier
-            - sample_name: Drug/sample name
-            - quantity: Concentration value
-            - url: Image URL
-            - project_id: Associated project ID
-            - Additional metadata
+        pd.DataFrame: Combined cards from valid project(s). Empty DataFrame if
+            no valid projects found.
             
     Note:
-        You must provide either project_name OR project_ids, not both.
+        Uses "skip and continue" approach - invalid projects are skipped with
+        warning messages, but valid projects are still processed.
         
     Example:
-        >>> # Get cards from a specific project
-        >>> cards = get_project_cards(project_name="Pharmaceutical_QC")
-        >>> print(f"Found {len(cards)} cards in project")
-        Found 1250 cards in project
+        >>> # Single project by name
+        >>> cards = get_project_cards("AMR Kenya")
         
-        >>> # Get cards from multiple projects
-        >>> cards = get_project_cards(project_ids=[1, 2, 3])
-        >>> print(f"Found {len(cards)} cards across projects")
-        Found 3750 cards across projects
+        >>> # Multiple projects by name
+        >>> cards = get_project_cards(["AMR Kenya", "AirGap"])
+        
+        >>> # Mixed names and IDs
+        >>> cards = get_project_cards(["AMR Kenya", 4, "AirGap"])
+        
+        >>> # All projects
+        >>> cards = get_project_cards()  # Gets all projects
     """
-
-    def _get_project_cards_by_name(name):
-        project_result = get_project(name=project_name)
-        if project_result is not None and len(project_result) > 0:
-            project_id = project_result.id.values[0]
-            result = _get_project_cards_by_id(project_id, project_name=name)
-            return result
+    
+    def _resolve_project_to_id(proj):
+        """Resolve a project name or ID to a project ID.
+        
+        Returns:
+            tuple: (project_id, project_name, success)
+        """
+        if isinstance(proj, int):
+            # It's a project ID, verify it exists by trying to get its info
+            projects_df = get_projects()
+            matching_projects = projects_df[projects_df['id'] == proj]
+            if len(matching_projects) > 0:
+                project_name = matching_projects['project_name'].iloc[0]
+                return proj, project_name, True
+            else:
+                print(f"⚠️  Project ID {proj} not found. Please check the ID and try again.")
+                return None, None, False
+                
+        elif isinstance(proj, str):
+            # It's a project name
+            project_result = get_project(name=proj)
+            if project_result is not None and len(project_result) > 0:
+                project_id = project_result['id'].iloc[0]
+                return project_id, proj, True
+            else:
+                print(f"⚠️  Project '{proj}' not found. Please check the project name and try again.")
+                return None, None, False
         else:
-            print(f"⚠️  Project '{name}' not found. Please check the project name and try again.")
-            return pd.DataFrame()  # Return empty DataFrame
-
-    # Get project cards
-    def _get_project_cards_by_id(project_id, project_name=None):
+            print(f"⚠️  Invalid project type: {type(proj)}. Must be string or integer.")
+            return None, None, False
+    
+    def _get_cards_for_project_id(project_id, project_name):
+        """Get cards for a specific project ID.
+        
+        Returns:
+            tuple: (cards_dataframe, success)
+        """
         request_url = f"{API_URL}/projects/{project_id}/cards"
         result = get_data_api(request_url, f"project {project_id} cards")
         
-        # Check if project exists but has no cards
-        if result is not None and len(result) == 0:
-            if project_name:
-                print(f"ℹ️  Project '{project_name}' exists but has no cards.")
-            else:
-                print(f"ℹ️  Project {project_id} exists but has no cards.")
+        if result is None:
+            # API error already handled by get_data_api
+            return pd.DataFrame(), False
+        elif len(result) == 0:
+            print(f"ℹ️  Project '{project_name}' exists but has no cards.")
+            return pd.DataFrame(), True  # Empty but successful
+        else:
+            return result, True
+    
+    # Handle None case (all projects)
+    if project is None:
+        print("⚠️  Getting cards from ALL projects. This may take a while...")
+        all_projects = get_projects()
+        project_list = all_projects['id'].tolist()
+    else:
+        # Normalize input to list
+        if isinstance(project, (str, int)):
+            project_list = [project]
+        elif isinstance(project, list):
+            project_list = project
+        else:
+            print(f"⚠️  Invalid project parameter type: {type(project)}")
+            return pd.DataFrame()
+    
+    # Process each project
+    all_cards = []
+    successful_projects = []
+    failed_projects = []
+    empty_projects = []
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_projects = []
+    for p in project_list:
+        if p not in seen:
+            unique_projects.append(p)
+            seen.add(p)
+    
+    for proj in unique_projects:
+        # Resolve project to ID
+        project_id, project_name, resolve_success = _resolve_project_to_id(proj)
         
-        return result
-
-    # check if project_name is not None
-    if project_name is not None:
-        return _get_project_cards_by_name(project_name)
-
-    # Check if project_ids is None, covert it to a list of all available project
-    if project_ids is None:
-        project_ids = get_projects().id.tolist()
-
-    # Check if project_ids is a single integer, convert it to a list if so
-    elif isinstance(project_ids, int):
-        project_ids = [project_ids]
-    # error
-    elif not isinstance(project_ids, list):
-        raise ValueError(
-            "project_ids must be a single integer, a list of integers, or None"
-        )
-
-    all_cards = []  # List to hold dataframes from multiple projects
-
-    for project_id in project_ids:
-        # Get cards for each project
-        project_cards = _get_project_cards_by_id(project_id)
-
-        if project_cards is not None:
-            all_cards.append(project_cards)
-
-    # Concatenate all dataframes into one, if there is data
+        if not resolve_success:
+            failed_projects.append(proj)
+            continue
+            
+        # Get cards for this project
+        cards_df, get_success = _get_cards_for_project_id(project_id, project_name)
+        
+        if not get_success:
+            failed_projects.append(proj)
+        elif len(cards_df) == 0:
+            empty_projects.append(project_name)
+        else:
+            all_cards.append(cards_df)
+            successful_projects.append(project_name)
+            print(f"✅ Found {len(cards_df)} cards from project '{project_name}'")
+    
+    # Combine results
     if all_cards:
         combined_df = pd.concat(all_cards, ignore_index=True)
+        
+        # Print summary
+        total_requested = len(unique_projects)
+        successful_count = len(successful_projects)
+        
+        if successful_count < total_requested:
+            print(f"ℹ️  Returning cards from {successful_count} out of {total_requested} requested projects.")
+            
         return combined_df
     else:
-        print("No data was retrieved for the provided project IDs.")
-        return None
+        # No cards found
+        print("ℹ️  No cards found from any of the requested projects.")
+        return pd.DataFrame()
 
 
 # def get_card(card_id):
