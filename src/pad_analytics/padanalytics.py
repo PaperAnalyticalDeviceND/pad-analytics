@@ -315,7 +315,7 @@ def get_project_cards(project=None):
                 
         elif isinstance(proj, str):
             # It's a project name
-            project_result = get_project(name=proj)
+            project_result = get_project(proj)
             if project_result is not None and len(project_result) > 0:
                 project_id = project_result['id'].iloc[0]
                 return project_id, proj, True
