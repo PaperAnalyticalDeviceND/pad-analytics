@@ -3,7 +3,7 @@
 A complete workflow for machine learning models using data from the PAD API v2.
 """
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 # Import all main functions from padanalytics module to package level
 try:
@@ -94,6 +94,27 @@ if _PADANALYTICS_IMPORTED:
         "download_file",
         "standardize_names",
     ])
+
+# Data Caching System (NEW in v0.2.3)
+try:
+    from .cache_manager import CacheManager
+    from .cached_dataset import CachedDataset
+    from .cached_predictions import (
+        predict_with_cache,
+        apply_predictions_to_dataframe_with_cache
+    )
+    
+    __all__.extend([
+        "CacheManager",
+        "CachedDataset", 
+        "predict_with_cache",
+        "apply_predictions_to_dataframe_with_cache"
+    ])
+    _CACHING_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Caching modules not available: {e}")
+    _CACHING_IMPORTED = False
 
 # Add available submodules
 for module_name in ["pad_analysis", "pad_helper", "fileManagement", "intensityFind", "pixelProcessing", "regionRoutine"]:
