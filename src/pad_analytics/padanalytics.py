@@ -303,15 +303,25 @@ def get_project_cards(project_name=None, project_ids=None):
         project_result = get_project(name=project_name)
         if project_result is not None and len(project_result) > 0:
             project_id = project_result.id.values[0]
-            return _get_project_cards_by_id(project_id)
+            result = _get_project_cards_by_id(project_id, project_name=name)
+            return result
         else:
             print(f"⚠️  Project '{name}' not found. Please check the project name and try again.")
             return pd.DataFrame()  # Return empty DataFrame
 
     # Get project cards
-    def _get_project_cards_by_id(project_id):
+    def _get_project_cards_by_id(project_id, project_name=None):
         request_url = f"{API_URL}/projects/{project_id}/cards"
-        return get_data_api(request_url, f"project {project_id} cards")
+        result = get_data_api(request_url, f"project {project_id} cards")
+        
+        # Check if project exists but has no cards
+        if result is not None and len(result) == 0:
+            if project_name:
+                print(f"ℹ️  Project '{project_name}' exists but has no cards.")
+            else:
+                print(f"ℹ️  Project {project_id} exists but has no cards.")
+        
+        return result
 
     # check if project_name is not None
     if project_name is not None:
