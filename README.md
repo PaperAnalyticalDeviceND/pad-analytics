@@ -53,7 +53,7 @@ projects = pad.get_projects()
 print(f"Found {len(projects)} projects")
 
 # Get PAD test cards from a specific project
-cards = pad.get_project_cards(project_name="ChemoPADNNtraining2024")
+cards = pad.get_project_cards("ChemoPADNNtraining2024")
 
 # Analyze a specific PAD card
 card_data = pad.get_card(card_id=19208)
@@ -74,8 +74,8 @@ Access the complete PAD database through the [OAS-compliant API](https://pad.crc
 projects = pad.get_projects()
 
 # Get cards by various criteria
-cards = pad.get_project_cards(project_ids=12)
-cards = pad.get_card_by_sample_id(65490)
+cards = pad.get_project_cards(12) # project id
+card = pad.get_card(sample_id=65490) # sample id
 
 # View available ML models
 models = pad.get_models()
@@ -104,7 +104,7 @@ pad.show_card(card_id=19208)
 pad.show_prediction(card_id=19208, model_id=18)
 
 # Display multiple cards grouped by drug type
-cards_df = pad.get_project_cards(project_name="ChemoPADNNtraining2024")
+cards_df = pad.get_project_cards("ChemoPADNNtraining2024")
 pad.show_grouped_cards(cards_df, group_column='sample_name')
 ```
 
