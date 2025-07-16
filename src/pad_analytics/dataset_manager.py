@@ -436,18 +436,21 @@ class DatasetManager:
         )
         return self.get_dataset_name_from_model_id(model_id)
     
-    def get_dataset_cards(self, dataset_name: str) -> Optional[pd.DataFrame]:
-        """Get all cards (samples) from a specific dataset.
+    def get_dataset_cards(self, dataset_name: str, data_type: str = "all") -> Optional[pd.DataFrame]:
+        """Get cards from a specific dataset with train/test filtering.
         
-        Loads and combines training and test data for the specified dataset.
+        Loads dataset cards with flexible options for train/test data selection.
         Returns a clean view without implementation details like 'is_train' column.
         
         Args:
             dataset_name (str): Name of the dataset to load cards from.
+            data_type (str, optional): Type of data to return. Options:
+                - "all": All cards (default, no is_train column)
+                - "train": Training cards only (no is_train column)
+                - "test": Test cards only (no is_train column)
             
         Returns:
-            pd.DataFrame or None: Combined dataset with all cards/samples, or None if
-                dataset not found. Columns typically include:
+            pd.DataFrame or None: Dataset cards or None if not found. Columns include:
                 - id: Card ID
                 - sample_id: Sample identifier  
                 - sample_name: Drug/sample name
@@ -457,13 +460,30 @@ class DatasetManager:
                 
         Note:
             The 'is_train' column is NOT included in the output for a clean view.
-            Use get_model_data() if you need train/test distinction.
+            If you need the is_train column, use get_model_data() with data_type="all".
                 
+        Raises:
+            ValueError: If data_type is not one of "all", "train", or "test".
+            
         Example:
-            >>> cards = dm.get_dataset_cards("FHI2020_Stratified_Sampling")
-            >>> print(f"Loaded {len(cards)} cards")
-            Loaded 8001 cards
+            >>> # Get all cards
+            >>> all_cards = dm.get_dataset_cards("FHI2020_Stratified_Sampling")
+            >>> print(f"Total cards: {len(all_cards)}")
+            Total cards: 8001
+            
+            >>> # Get only test cards
+            >>> test_cards = dm.get_dataset_cards("FHI2020_Stratified_Sampling", data_type="test")
+            >>> print(f"Test cards: {len(test_cards)}")
+            Test cards: 2078
+            
+            >>> # Get only training cards
+            >>> train_cards = dm.get_dataset_cards("FHI2020_Stratified_Sampling", data_type="train")
+            >>> print(f"Training cards: {len(train_cards)}")
+            Training cards: 5923
         """
+        if data_type not in ["all", "train", "test"]:
+            raise ValueError("data_type must be 'all', 'train', or 'test'")
+            
         # Get dataset URLs
         train_url, test_url = self.get_dataset_urls(dataset_name)
         
@@ -474,32 +494,35 @@ class DatasetManager:
         train_df = None
         test_df = None
         
-        # Load training data
-        if train_url:
+        # Load training data if needed
+        if data_type in ["train", "all"] and train_url:
             try:
                 train_df = pd.read_csv(train_url)
             except Exception as e:
                 logger.error(f"Error loading training data for {dataset_name}: {e}")
         
-        # Load test data
-        if test_url:
+        # Load test data if needed
+        if data_type in ["test", "all"] and test_url:
             try:
                 test_df = pd.read_csv(test_url)
             except Exception as e:
                 logger.error(f"Error loading test data for {dataset_name}: {e}")
         
-        # Combine datasets without is_train column
-        if train_df is not None and test_df is not None:
-            data_df = pd.concat([train_df, test_df], ignore_index=True)
-        elif train_df is not None:
-            data_df = train_df
-        elif test_df is not None:
-            data_df = test_df
-        else:
-            logger.error(f"Failed to load any data for dataset: {dataset_name}")
-            return None
-        
-        return data_df
+        # Return requested data without is_train column
+        if data_type == "train":
+            return train_df
+        elif data_type == "test":
+            return test_df
+        else:  # data_type == "all"
+            if train_df is not None and test_df is not None:
+                return pd.concat([train_df, test_df], ignore_index=True)
+            elif train_df is not None:
+                return train_df
+            elif test_df is not None:
+                return test_df
+            else:
+                logger.error(f"Failed to load any data for dataset: {dataset_name}")
+                return None
     
     def get_model_data(self, model_id: int, data_type: str = "all") -> Optional[pd.DataFrame]:
         """Get training, testing, or all data for a specific model.
