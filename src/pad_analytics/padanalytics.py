@@ -300,12 +300,13 @@ def get_project_cards(project_name=None, project_ids=None):
     """
 
     def _get_project_cards_by_name(name):
-        project_id = get_project(name=project_name).id.values[0]
-        if project_id:
+        project_result = get_project(name=project_name)
+        if project_result is not None and len(project_result) > 0:
+            project_id = project_result.id.values[0]
             return _get_project_cards_by_id(project_id)
         else:
-            print(f"Project {name} not found.")
-            return None
+            print(f"⚠️  Project '{name}' not found. Please check the project name and try again.")
+            return pd.DataFrame()  # Return empty DataFrame
 
     # Get project cards
     def _get_project_cards_by_id(project_id):
