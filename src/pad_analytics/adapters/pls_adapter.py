@@ -12,6 +12,7 @@ import os
 import csv
 
 from .base_adapter import BaseAdapter
+from ..performance_monitor import performance_monitor
 
 
 class PLSAdapter(BaseAdapter):
@@ -96,6 +97,7 @@ class PLSAdapter(BaseAdapter):
             print(f"Failed to load PLS model {self.model_id}: {e}")
             return False
     
+    @performance_monitor("pls_predict_single")
     def predict_single(self, preprocessed_data: Dict[str, Any]) -> float:
         """
         Make a prediction for a single preprocessed data point.
@@ -135,9 +137,10 @@ class PLSAdapter(BaseAdapter):
             print(f"PLS prediction failed: {e}")
             raise
     
+    @performance_monitor("pls_predict_batch")
     def predict_batch(self, preprocessed_batch: List[Dict[str, Any]]) -> List[float]:
         """
-        Make predictions for a batch of preprocessed data.
+        Make predictions for a batch of preprocessed data with optimized processing.
         
         Args:
             preprocessed_batch: List of preprocessed data dictionaries
@@ -148,6 +151,94 @@ class PLSAdapter(BaseAdapter):
         if not self.is_loaded:
             raise RuntimeError("Model not loaded. Call load_model() first.")
         
+        if not preprocessed_batch:
+            return []
+        
+        # Try optimized batch processing first
+        try:
+            return self._predict_batch_optimized(preprocessed_batch)
+        except Exception as e:
+            print(f"Optimized batch processing failed, falling back to sequential: {e}")
+            # Fallback to sequential processing
+            return self._predict_batch_sequential(preprocessed_batch)
+    
+    def _predict_batch_optimized(self, preprocessed_batch: List[Dict[str, Any]]) -> List[float]:
+        """
+        Optimized batch prediction using vectorized operations.
+        
+        Args:
+            preprocessed_batch: List of preprocessed data dictionaries
+            
+        Returns:
+            List of concentration predictions
+        """
+        # Group by drug name for efficient batch processing
+        drug_groups = {}
+        item_indices = {}
+        
+        for i, preprocessed_data in enumerate(preprocessed_batch):
+            if not self.validate_preprocessed_data(preprocessed_data):
+                print(f"Warning: Invalid preprocessed data at index {i}, skipping")
+                continue
+            
+            drug_name = preprocessed_data.get('sample_name', '').lower()
+            if drug_name not in self.model:
+                print(f"Warning: Drug '{drug_name}' not found in model at index {i}")
+                continue
+            
+            if drug_name not in drug_groups:
+                drug_groups[drug_name] = []
+                item_indices[drug_name] = []
+            
+            drug_groups[drug_name].append(preprocessed_data['features'])
+            item_indices[drug_name].append(i)
+        
+        # Initialize results array
+        results = [0.0] * len(preprocessed_batch)
+        
+        # Process each drug group with vectorized operations
+        for drug_name, features_list in drug_groups.items():
+            if not features_list:
+                continue
+            
+            try:
+                # Convert to numpy array for vectorized operations
+                features_array = np.array(features_list, dtype=np.float64)
+                coefficients = np.array(self.model[drug_name], dtype=np.float64)
+                
+                # Vectorized PLS calculation
+                batch_results = self._calculate_pls_batch(features_array, coefficients)
+                
+                # Place results in correct positions
+                indices = item_indices[drug_name]
+                for i, result in enumerate(batch_results):
+                    if i < len(indices):
+                        results[indices[i]] = float(result)
+                        
+            except Exception as e:
+                print(f"Batch processing failed for drug '{drug_name}': {e}")
+                # Fall back to individual processing for this drug
+                indices = item_indices[drug_name]
+                for i, features in enumerate(features_list):
+                    if i < len(indices):
+                        try:
+                            result = self._calculate_pls_concentration(features, self.model[drug_name])
+                            results[indices[i]] = float(result)
+                        except Exception:
+                            results[indices[i]] = 0.0
+        
+        return results
+    
+    def _predict_batch_sequential(self, preprocessed_batch: List[Dict[str, Any]]) -> List[float]:
+        """
+        Sequential batch prediction (fallback method).
+        
+        Args:
+            preprocessed_batch: List of preprocessed data dictionaries
+            
+        Returns:
+            List of concentration predictions
+        """
         results = []
         for preprocessed_data in preprocessed_batch:
             try:
@@ -159,6 +250,42 @@ class PLSAdapter(BaseAdapter):
                 results.append(0.0)
         
         return results
+    
+    def _calculate_pls_batch(self, features_array: np.ndarray, coefficients: np.ndarray) -> np.ndarray:
+        """
+        Calculate PLS concentrations for a batch using vectorized operations.
+        
+        Args:
+            features_array: Array of shape (batch_size, 360) containing features
+            coefficients: Array of coefficients for this drug
+            
+        Returns:
+            Array of concentration predictions
+        """
+        if len(coefficients) == 0:
+            return np.zeros(features_array.shape[0])
+        
+        # Start with offset (first coefficient) for all samples
+        batch_size = features_array.shape[0]
+        concentrations = np.full(batch_size, coefficients[0], dtype=np.float64)
+        
+        # Vectorized multiplication and addition
+        if len(coefficients) > 1:
+            # Get feature coefficients (excluding offset)
+            feature_coeffs = coefficients[1:min(len(coefficients), features_array.shape[1] + 1)]
+            
+            # Ensure we don't exceed feature dimensions
+            num_features = min(len(feature_coeffs), features_array.shape[1])
+            
+            # Vectorized dot product
+            feature_contributions = np.dot(
+                features_array[:, :num_features], 
+                feature_coeffs[:num_features]
+            )
+            
+            concentrations += feature_contributions
+        
+        return concentrations
     
     def get_expected_input_format(self) -> str:
         """

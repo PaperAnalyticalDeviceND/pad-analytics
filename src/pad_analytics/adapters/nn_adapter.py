@@ -11,6 +11,7 @@ import tempfile
 import os
 
 from .base_adapter import BaseAdapter
+from ..performance_monitor import performance_monitor, get_global_monitor
 
 
 class NeuralNetworkAdapter(BaseAdapter):
@@ -123,6 +124,7 @@ class NeuralNetworkAdapter(BaseAdapter):
             print(f"Failed to load neural network model {self.model_id}: {e}")
             return False
     
+    @performance_monitor("nn_predict_single")
     def predict_single(self, preprocessed_data: Dict[str, Any]) -> Tuple[str, float, float]:
         """
         Make a prediction for a single preprocessed data point.
@@ -180,9 +182,10 @@ class NeuralNetworkAdapter(BaseAdapter):
             print(f"Prediction failed: {e}")
             raise
     
+    @performance_monitor("nn_predict_batch")
     def predict_batch(self, preprocessed_batch: List[Dict[str, Any]]) -> List[Tuple[str, float, float]]:
         """
-        Make predictions for a batch of preprocessed data.
+        Make predictions for a batch of preprocessed data with optimized batching.
         
         Args:
             preprocessed_batch: List of preprocessed data dictionaries
@@ -193,6 +196,135 @@ class NeuralNetworkAdapter(BaseAdapter):
         if not self.is_loaded:
             raise RuntimeError("Model not loaded. Call load_model() first.")
         
+        if not preprocessed_batch:
+            return []
+        
+        # Try optimized batch processing first
+        try:
+            return self._predict_batch_optimized(preprocessed_batch)
+        except Exception as e:
+            print(f"Optimized batch processing failed, falling back to sequential: {e}")
+            # Fallback to sequential processing
+            return self._predict_batch_sequential(preprocessed_batch)
+    
+    def _predict_batch_optimized(self, preprocessed_batch: List[Dict[str, Any]]) -> List[Tuple[str, float, float]]:
+        """
+        Optimized batch prediction using true batching when possible.
+        
+        Args:
+            preprocessed_batch: List of preprocessed data dictionaries
+            
+        Returns:
+            List of (drug_name, confidence, energy) tuples
+        """
+        import tensorflow as tf
+        
+        # Validate all inputs first
+        valid_items = []
+        for i, preprocessed_data in enumerate(preprocessed_batch):
+            if self.validate_preprocessed_data(preprocessed_data):
+                valid_items.append((i, preprocessed_data))
+            else:
+                print(f"Warning: Invalid preprocessed data at index {i}, skipping")
+        
+        if not valid_items:
+            return [("unknown", 0.0, 0.0)] * len(preprocessed_batch)
+        
+        # Extract image arrays and stack into batch
+        batch_images = []
+        valid_indices = []
+        
+        for idx, (original_idx, preprocessed_data) in enumerate(valid_items):
+            image_array = preprocessed_data['preprocessed_image']
+            
+            # Ensure correct shape and type
+            if image_array.shape != (1, 454, 454, 3):
+                raise ValueError(f"Expected image shape (1, 454, 454, 3), got {image_array.shape}")
+            
+            # Remove batch dimension for stacking
+            image_array = image_array.squeeze(0).astype(np.float32)
+            batch_images.append(image_array)
+            valid_indices.append(original_idx)
+        
+        if not batch_images:
+            return [("unknown", 0.0, 0.0)] * len(preprocessed_batch)
+        
+        # Stack into batch array
+        batch_array = np.stack(batch_images, axis=0).astype(np.float32)
+        
+        # Process in smaller chunks if batch is too large
+        chunk_size = min(32, len(batch_images))  # Process up to 32 at once
+        all_results = []
+        
+        for i in range(0, len(batch_images), chunk_size):
+            chunk = batch_array[i:i + chunk_size]
+            chunk_results = self._process_batch_chunk(chunk)
+            all_results.extend(chunk_results)
+        
+        # Create final results array with placeholders for invalid items
+        final_results = [("unknown", 0.0, 0.0)] * len(preprocessed_batch)
+        
+        # Fill in valid results
+        for result_idx, original_idx in enumerate(valid_indices):
+            if result_idx < len(all_results):
+                final_results[original_idx] = all_results[result_idx]
+        
+        return final_results
+    
+    def _process_batch_chunk(self, batch_chunk: np.ndarray) -> List[Tuple[str, float, float]]:
+        """
+        Process a chunk of batch data through the model.
+        
+        Args:
+            batch_chunk: Batch array of shape (N, 454, 454, 3)
+            
+        Returns:
+            List of prediction results
+        """
+        import tensorflow as tf
+        
+        results = []
+        
+        # For TensorFlow Lite, we still need to process one by one
+        # but we can optimize the tensor operations
+        for i in range(batch_chunk.shape[0]):
+            single_image = batch_chunk[i:i+1]  # Keep batch dimension
+            
+            # Set input tensor
+            self.model.set_tensor(self.input_details[0]["index"], single_image)
+            
+            # Run inference
+            self.model.invoke()
+            
+            # Get output
+            result = self.model.get_tensor(self.output_details[0]["index"])
+            
+            # Process result
+            num_label = np.argmax(result[0])
+            
+            # Check if the predicted index is within bounds
+            if num_label >= len(self.labels):
+                results.append(("unknown", 0.0, 0.0))
+                continue
+            
+            drug_name = self.labels[num_label]
+            confidence = tf.nn.softmax(result[0])[num_label].numpy()
+            energy = tf.reduce_logsumexp(result[0], -1).numpy()
+            
+            results.append((drug_name, float(confidence), float(energy)))
+        
+        return results
+    
+    def _predict_batch_sequential(self, preprocessed_batch: List[Dict[str, Any]]) -> List[Tuple[str, float, float]]:
+        """
+        Sequential batch prediction (fallback method).
+        
+        Args:
+            preprocessed_batch: List of preprocessed data dictionaries
+            
+        Returns:
+            List of (drug_name, confidence, energy) tuples
+        """
         results = []
         for preprocessed_data in preprocessed_batch:
             try:

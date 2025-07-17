@@ -5,12 +5,16 @@ This module provides the main ModelAdapter class that automatically
 selects and configures the appropriate model adapter based on model type.
 """
 
-from typing import Dict, Any, Optional, List, Union, Tuple
+from typing import Dict, Any, Optional, List, Union, Tuple, Awaitable
 import pandas as pd
 from pathlib import Path
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import multiprocessing as mp
 
 from .adapters import BaseAdapter, NeuralNetworkAdapter, PLSAdapter
 from .cache_manager import CacheManager
+from .performance_monitor import performance_monitor, get_global_monitor
 
 
 class ModelAdapter:
@@ -32,6 +36,9 @@ class ModelAdapter:
         """
         self.model_id = model_id
         self.cache_manager = cache_manager
+        
+        # Performance monitoring
+        self.performance_monitor = get_global_monitor()
         
         # Auto-detect and create appropriate adapter
         self.adapter = self._create_adapter()
@@ -85,6 +92,7 @@ class ModelAdapter:
         """
         return self.adapter.load_model()
     
+    @performance_monitor("model_adapter_predict")
     def predict(self, card_data: Dict[str, Any]) -> Union[Tuple[str, float, float], float]:
         """
         Make a prediction for a single card.
@@ -99,9 +107,30 @@ class ModelAdapter:
         """
         return self.adapter.predict(card_data)
     
-    def predict_batch(self, cards_data: List[Dict[str, Any]]) -> List[Union[Tuple[str, float, float], float]]:
+    def predict_batch(self, cards_data: List[Dict[str, Any]], 
+                     parallel: bool = True, 
+                     max_workers: Optional[int] = None) -> List[Union[Tuple[str, float, float], float]]:
         """
-        Make predictions for a batch of cards.
+        Make predictions for a batch of cards with optional parallel processing.
+        
+        Args:
+            cards_data: List of card data dictionaries
+            parallel: Whether to use parallel processing for large batches
+            max_workers: Maximum number of parallel workers (None for auto)
+            
+        Returns:
+            List of prediction results
+        """
+        # For small batches, use regular processing
+        if len(cards_data) <= 10 or not parallel:
+            return self._predict_batch_sequential(cards_data)
+        
+        # For larger batches, use parallel processing
+        return self._predict_batch_parallel(cards_data, max_workers)
+    
+    def _predict_batch_sequential(self, cards_data: List[Dict[str, Any]]) -> List[Union[Tuple[str, float, float], float]]:
+        """
+        Sequential batch prediction (original method).
         
         Args:
             cards_data: List of card data dictionaries
@@ -122,14 +151,107 @@ class ModelAdapter:
         # Make predictions
         return self.adapter.predict_batch(preprocessed_list)
     
-    def predict_dataset(self, dataset: Union[pd.DataFrame, 'CachedDataset'],
-                       max_cards: Optional[int] = None) -> pd.DataFrame:
+    def _predict_batch_parallel(self, cards_data: List[Dict[str, Any]], 
+                               max_workers: Optional[int] = None) -> List[Union[Tuple[str, float, float], float]]:
         """
-        Make predictions for an entire dataset.
+        Parallel batch prediction for large datasets.
+        
+        Args:
+            cards_data: List of card data dictionaries
+            max_workers: Maximum number of parallel workers
+            
+        Returns:
+            List of prediction results
+        """
+        if max_workers is None:
+            max_workers = min(mp.cpu_count(), 8)  # Don't overwhelm the system
+        
+        # Split into chunks for parallel processing
+        chunk_size = max(1, len(cards_data) // max_workers)
+        chunks = [cards_data[i:i + chunk_size] for i in range(0, len(cards_data), chunk_size)]
+        
+        # Process chunks in parallel using threads (not processes due to model state)
+        all_results = []
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_chunk = {
+                executor.submit(self._predict_batch_sequential, chunk): chunk 
+                for chunk in chunks
+            }
+            
+            # Collect results maintaining order
+            chunk_results = {}
+            from concurrent.futures import as_completed
+            for future in as_completed(future_to_chunk):
+                chunk = future_to_chunk[future]
+                chunk_index = chunks.index(chunk)
+                try:
+                    chunk_results[chunk_index] = future.result()
+                except Exception as e:
+                    print(f"Chunk processing failed: {e}")
+                    # Create placeholder results for failed chunk
+                    placeholder = self._get_placeholder_result()
+                    chunk_results[chunk_index] = [placeholder] * len(chunk)
+        
+        # Combine results in order
+        for i in sorted(chunk_results.keys()):
+            all_results.extend(chunk_results[i])
+        
+        return all_results
+    
+    def _get_placeholder_result(self) -> Union[Tuple[str, float, float], float]:
+        """
+        Get a placeholder result for failed predictions.
+        
+        Returns:
+            Placeholder result based on model type
+        """
+        if self.get_model_type() == 'neural_network':
+            return ("unknown", 0.0, 0.0)
+        else:
+            return 0.0
+    
+    async def predict_async(self, card_data: Dict[str, Any]) -> Union[Tuple[str, float, float], float]:
+        """
+        Make an asynchronous prediction for a single card.
+        
+        Args:
+            card_data: Raw card data dictionary
+            
+        Returns:
+            Prediction result
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.predict, card_data)
+    
+    async def predict_batch_async(self, cards_data: List[Dict[str, Any]], 
+                                 parallel: bool = True,
+                                 max_workers: Optional[int] = None) -> List[Union[Tuple[str, float, float], float]]:
+        """
+        Make asynchronous predictions for a batch of cards.
+        
+        Args:
+            cards_data: List of card data dictionaries
+            parallel: Whether to use parallel processing for large batches
+            max_workers: Maximum number of parallel workers (None for auto)
+            
+        Returns:
+            List of prediction results
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.predict_batch, cards_data, parallel, max_workers)
+    
+    async def predict_dataset_async(self, dataset: Union[pd.DataFrame, 'CachedDataset'],
+                                   max_cards: Optional[int] = None,
+                                   batch_size: int = 100,
+                                   progress_callback: Optional[callable] = None) -> pd.DataFrame:
+        """
+        Make asynchronous predictions for an entire dataset with progress tracking.
         
         Args:
             dataset: Dataset to make predictions for
             max_cards: Maximum number of cards to process (None for all)
+            batch_size: Size of batches for processing
+            progress_callback: Optional callback function for progress updates
             
         Returns:
             DataFrame with predictions added
@@ -149,8 +271,66 @@ class ModelAdapter:
         if max_cards is not None:
             cards_data = cards_data[:max_cards]
         
-        # Make predictions
-        predictions = self.predict_batch(cards_data)
+        # Process in batches
+        all_predictions = []
+        total_batches = (len(cards_data) + batch_size - 1) // batch_size
+        
+        for i in range(0, len(cards_data), batch_size):
+            batch = cards_data[i:i + batch_size]
+            batch_predictions = await self.predict_batch_async(batch, parallel=True)
+            all_predictions.extend(batch_predictions)
+            
+            # Call progress callback if provided
+            if progress_callback:
+                batch_num = (i // batch_size) + 1
+                progress_callback(batch_num, total_batches, len(batch))
+        
+        # Create results DataFrame
+        results_df = pd.DataFrame(cards_data)
+        
+        # Add predictions
+        if self.get_model_type() == 'neural_network':
+            # Neural network predictions are tuples
+            results_df['predicted_drug'] = [pred[0] for pred in all_predictions]
+            results_df['confidence'] = [pred[1] for pred in all_predictions]
+            results_df['energy'] = [pred[2] for pred in all_predictions]
+        else:
+            # PLS predictions are floats
+            results_df['predicted_concentration'] = all_predictions
+        
+        return results_df
+    
+    def predict_dataset(self, dataset: Union[pd.DataFrame, 'CachedDataset'],
+                       max_cards: Optional[int] = None,
+                       parallel: bool = True) -> pd.DataFrame:
+        """
+        Make predictions for an entire dataset with improved parallel processing.
+        
+        Args:
+            dataset: Dataset to make predictions for
+            max_cards: Maximum number of cards to process (None for all)
+            parallel: Whether to use parallel processing for large datasets
+            
+        Returns:
+            DataFrame with predictions added
+        """
+        # Handle different dataset types
+        if hasattr(dataset, 'load_dataset_metadata'):
+            # CachedDataset
+            metadata_df = dataset.load_dataset_metadata()
+            cards_data = metadata_df.to_dict('records')
+        elif isinstance(dataset, pd.DataFrame):
+            # Regular DataFrame
+            cards_data = dataset.to_dict('records')
+        else:
+            raise ValueError(f"Unsupported dataset type: {type(dataset)}")
+        
+        # Limit number of cards if specified
+        if max_cards is not None:
+            cards_data = cards_data[:max_cards]
+        
+        # Make predictions with improved parallel processing
+        predictions = self.predict_batch(cards_data, parallel=parallel)
         
         # Create results DataFrame
         results_df = pd.DataFrame(cards_data)

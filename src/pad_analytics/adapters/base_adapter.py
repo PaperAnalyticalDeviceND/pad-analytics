@@ -34,6 +34,13 @@ class BaseAdapter(ABC):
         self.model_metadata = None
         self.is_loaded = False
         
+        # Performance monitoring
+        try:
+            from ..performance_monitor import get_global_monitor
+            self.performance_monitor = get_global_monitor()
+        except ImportError:
+            self.performance_monitor = None
+        
         # Get model information
         self.model_info = self._get_model_info()
         

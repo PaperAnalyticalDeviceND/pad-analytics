@@ -3,7 +3,7 @@
 A complete workflow for machine learning models using data from the PAD API v2.
 """
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 # Import all main functions from padanalytics module to package level
 try:
@@ -101,13 +101,26 @@ try:
     from .cached_dataset import CachedDataset
     from .cached_predictions import (
         predict_with_cache,
-        apply_predictions_to_dataframe_with_cache
+        get_cache_status
+    )
+    from .cached_functions import (
+        get_dataset_cards_cached,
+        apply_predictions_to_dataframe_cached,
+        cache_dataset_images,
+        # Direct replacements with caching
+        get_dataset_cards as get_dataset_cards_with_cache,
+        apply_predictions_to_dataframe as apply_predictions_to_dataframe_with_cache
     )
     
     __all__.extend([
         "CacheManager",
         "CachedDataset", 
         "predict_with_cache",
+        "get_cache_status",
+        "get_dataset_cards_cached",
+        "apply_predictions_to_dataframe_cached",
+        "cache_dataset_images",
+        "get_dataset_cards_with_cache",
         "apply_predictions_to_dataframe_with_cache"
     ])
     _CACHING_IMPORTED = True
@@ -154,6 +167,55 @@ except ImportError as e:
     import warnings
     warnings.warn(f"Could not import model adapter: {e}")
     _MODEL_ADAPTER_IMPORTED = False
+
+# Performance Monitoring System (NEW in v0.2.3 - Phase 4)
+try:
+    from .performance_monitor import (
+        PerformanceMonitor, PerformanceMetrics, performance_monitor,
+        get_global_monitor, set_global_monitoring, get_system_info
+    )
+    
+    __all__.extend([
+        "PerformanceMonitor",
+        "PerformanceMetrics",
+        "performance_monitor",
+        "get_global_monitor",
+        "set_global_monitoring",
+        "get_system_info"
+    ])
+    _PERFORMANCE_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import performance monitoring: {e}")
+    _PERFORMANCE_IMPORTED = False
+
+# Configuration Management System (NEW in v0.2.3 - Phase 4)
+try:
+    from .config_manager import (
+        ConfigManager, PADAnalyticsConfig, PreprocessingConfig, ModelConfig,
+        CacheConfig, PerformanceConfig, APIConfig, ValidationConfig,
+        get_global_config_manager, get_config, update_global_config, reset_global_config
+    )
+    
+    __all__.extend([
+        "ConfigManager",
+        "PADAnalyticsConfig",
+        "PreprocessingConfig",
+        "ModelConfig", 
+        "CacheConfig",
+        "PerformanceConfig",
+        "APIConfig",
+        "ValidationConfig",
+        "get_global_config_manager",
+        "get_config",
+        "update_global_config",
+        "reset_global_config"
+    ])
+    _CONFIG_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import configuration management: {e}")
+    _CONFIG_IMPORTED = False
 
 # Add available submodules
 for module_name in ["pad_analysis", "pad_helper", "fileManagement", "intensityFind", "pixelProcessing", "regionRoutine"]:

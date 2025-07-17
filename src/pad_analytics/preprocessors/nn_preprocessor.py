@@ -101,7 +101,7 @@ class NeuralNetworkPreprocessor(BasePreprocessor):
     def preprocess_batch(self, cards_data: List[Dict[str, Any]], 
                         image_paths: Optional[List[Path]] = None) -> pd.DataFrame:
         """
-        Preprocess a batch of cards efficiently.
+        Preprocess a batch of cards efficiently with parallel image loading.
         
         Args:
             cards_data: List of card data dictionaries
@@ -113,6 +113,98 @@ class NeuralNetworkPreprocessor(BasePreprocessor):
         if not cards_data:
             return pd.DataFrame()
         
+        # Try optimized batch processing first
+        try:
+            return self._preprocess_batch_optimized(cards_data, image_paths)
+        except Exception as e:
+            print(f"Optimized batch preprocessing failed, falling back to sequential: {e}")
+            # Fallback to sequential processing
+            return self._preprocess_batch_sequential(cards_data, image_paths)
+    
+    def _preprocess_batch_optimized(self, cards_data: List[Dict[str, Any]], 
+                                   image_paths: Optional[List[Path]] = None) -> pd.DataFrame:
+        """
+        Optimized batch preprocessing with parallel image loading.
+        
+        Args:
+            cards_data: List of card data dictionaries
+            image_paths: Optional list of image paths corresponding to cards
+            
+        Returns:
+            DataFrame with preprocessed features and metadata
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import threading
+        
+        # Prepare work items
+        work_items = []
+        for i, card_data in enumerate(cards_data):
+            if not self.validate_input(card_data):
+                print(f"Warning: Invalid card data at index {i}, skipping")
+                continue
+            
+            image_path = image_paths[i] if image_paths else None
+            work_items.append((i, card_data, image_path))
+        
+        if not work_items:
+            return pd.DataFrame()
+        
+        results = {}
+        max_workers = min(self.config.get('num_workers', 4), len(work_items))
+        
+        # Process in parallel with thread safety
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all preprocessing tasks
+            future_to_item = {
+                executor.submit(self._preprocess_single_item_safe, item): item 
+                for item in work_items
+            }
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_item):
+                original_index, result = future.result()
+                if result is not None:
+                    results[original_index] = result
+        
+        if not results:
+            return pd.DataFrame()
+        
+        # Sort results by original index to maintain order
+        sorted_results = [results[i] for i in sorted(results.keys())]
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(sorted_results)
+        
+        # Create optimized batch structure
+        if len(df) > 1:
+            try:
+                # Stack all preprocessed images for efficient batch operations
+                image_arrays = np.stack([arr.squeeze(0) for arr in df['preprocessed_image'].values])
+                df['image_batch'] = [image_arrays] * len(df)  # Reference to batch
+                df['batch_index'] = range(len(df))
+            except Exception as e:
+                print(f"Warning: Could not create image batch: {e}")
+                # Fall back to individual arrays
+                df['image_batch'] = df['preprocessed_image']
+                df['batch_index'] = range(len(df))
+        else:
+            df['image_batch'] = df['preprocessed_image']
+            df['batch_index'] = range(len(df))
+        
+        return df
+    
+    def _preprocess_batch_sequential(self, cards_data: List[Dict[str, Any]], 
+                                    image_paths: Optional[List[Path]] = None) -> pd.DataFrame:
+        """
+        Sequential batch preprocessing (fallback method).
+        
+        Args:
+            cards_data: List of card data dictionaries
+            image_paths: Optional list of image paths corresponding to cards
+            
+        Returns:
+            DataFrame with preprocessed features and metadata
+        """
         results = []
         
         for i, card_data in enumerate(cards_data):
@@ -132,11 +224,35 @@ class NeuralNetworkPreprocessor(BasePreprocessor):
         df = pd.DataFrame(results)
         
         # Separate image arrays from metadata
-        image_arrays = np.stack(df['preprocessed_image'].values)
-        df['image_batch'] = [image_arrays] * len(df)  # Reference to batch
-        df['batch_index'] = range(len(df))
+        try:
+            image_arrays = np.stack(df['preprocessed_image'].values)
+            df['image_batch'] = [image_arrays] * len(df)  # Reference to batch
+            df['batch_index'] = range(len(df))
+        except Exception as e:
+            print(f"Warning: Could not create image batch: {e}")
+            df['image_batch'] = df['preprocessed_image']
+            df['batch_index'] = range(len(df))
         
         return df
+    
+    def _preprocess_single_item_safe(self, item: tuple) -> tuple:
+        """
+        Thread-safe wrapper for preprocessing a single item.
+        
+        Args:
+            item: Tuple of (index, card_data, image_path)
+            
+        Returns:
+            Tuple of (original_index, result_dict or None)
+        """
+        original_index, card_data, image_path = item
+        
+        try:
+            result = self.preprocess_single_card(card_data, image_path)
+            return (original_index, result)
+        except Exception as e:
+            print(f"Warning: Failed to preprocess card {card_data.get('id', 'unknown')} at index {original_index}: {e}")
+            return (original_index, None)
     
     def get_feature_names(self) -> List[str]:
         """
