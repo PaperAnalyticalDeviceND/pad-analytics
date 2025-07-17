@@ -113,8 +113,47 @@ try:
     _CACHING_IMPORTED = True
 except ImportError as e:
     import warnings
-    warnings.warn(f"Caching modules not available: {e}")
+    warnings.warn(f"Could not import caching system: {e}")
     _CACHING_IMPORTED = False
+
+# Preprocessing Pipeline System (NEW in v0.2.3 - Phase 2)
+try:
+    from .preprocessing_pipeline import PreprocessingPipeline, create_neural_network_pipeline, create_pls_pipeline
+    from .preprocessors import BasePreprocessor, NeuralNetworkPreprocessor, PLSPreprocessor
+    
+    __all__.extend([
+        "PreprocessingPipeline",
+        "create_neural_network_pipeline",
+        "create_pls_pipeline",
+        "BasePreprocessor",
+        "NeuralNetworkPreprocessor",
+        "PLSPreprocessor"
+    ])
+    _PREPROCESSING_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import preprocessing pipeline: {e}")
+    _PREPROCESSING_IMPORTED = False
+
+# Model Adapter System (NEW in v0.2.3 - Phase 3)
+try:
+    from .model_adapter import ModelAdapter, create_neural_network_adapter, create_pls_adapter, get_available_models
+    from .adapters import BaseAdapter, NeuralNetworkAdapter, PLSAdapter
+    
+    __all__.extend([
+        "ModelAdapter",
+        "create_neural_network_adapter",
+        "create_pls_adapter",
+        "get_available_models",
+        "BaseAdapter",
+        "NeuralNetworkAdapter",
+        "PLSAdapter"
+    ])
+    _MODEL_ADAPTER_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import model adapter: {e}")
+    _MODEL_ADAPTER_IMPORTED = False
 
 # Add available submodules
 for module_name in ["pad_analysis", "pad_helper", "fileManagement", "intensityFind", "pixelProcessing", "regionRoutine"]:

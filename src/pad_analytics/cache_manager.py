@@ -11,7 +11,7 @@ import json
 import time
 import shutil
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from urllib.parse import urlparse
 import requests
 from PIL import Image
@@ -42,6 +42,7 @@ class CacheManager:
     - Metadata persistence  
     - Cache integrity verification
     - Automatic cleanup mechanisms
+    - Preprocessed data caching (Phase 2)
     """
     
     def __init__(self, cache_dir: str = "~/.pad_cache", max_cache_size_gb: float = 5.0):
@@ -59,13 +60,15 @@ class CacheManager:
         self.raw_images_dir = self.cache_dir / "raw_images"
         self.metadata_dir = self.cache_dir / "metadata"
         self.datasets_dir = self.cache_dir / "datasets"
+        self.preprocessed_dir = self.cache_dir / "preprocessed"  # Phase 2: Preprocessed data
+        self.models_dir = self.cache_dir / "models"  # Phase 3: Model files
         
         # Create cache structure
         self._initialize_cache_structure()
         
     def _initialize_cache_structure(self):
         """Create cache directory structure."""
-        for directory in [self.raw_images_dir, self.metadata_dir, self.datasets_dir]:
+        for directory in [self.raw_images_dir, self.metadata_dir, self.datasets_dir, self.preprocessed_dir, self.models_dir]:
             directory.mkdir(parents=True, exist_ok=True)
             
         # Create cache info file
@@ -265,6 +268,8 @@ class CacheManager:
             "total_size_mb": 0,
             "num_images": 0,
             "num_datasets": 0,
+            "num_preprocessed": 0,  # Phase 2: Preprocessed data count
+            "num_models": 0,  # Phase 3: Model files count
             "oldest_entry": None,
             "newest_entry": None
         }
@@ -290,6 +295,17 @@ class CacheManager:
             stats["total_size_mb"] += os.path.getsize(dataset_file) / (1024 * 1024)
             stats["num_datasets"] += 1
         
+        # Count preprocessed data (Phase 2)
+        for preprocessed_file in self.preprocessed_dir.glob("*.json"):
+            stats["total_size_mb"] += os.path.getsize(preprocessed_file) / (1024 * 1024)
+            stats["num_preprocessed"] += 1
+        
+        # Count models (Phase 3)
+        for model_file in self.models_dir.glob("*"):
+            if model_file.is_file() and not model_file.name.endswith('_metadata.json'):
+                stats["total_size_mb"] += os.path.getsize(model_file) / (1024 * 1024)
+                stats["num_models"] += 1
+        
         # Calculate time ranges
         if image_times:
             stats["oldest_entry"] = min(image_times)
@@ -301,7 +317,7 @@ class CacheManager:
     def _get_cache_size_bytes(self) -> int:
         """Get total cache size in bytes."""
         total_size = 0
-        for directory in [self.raw_images_dir, self.metadata_dir, self.datasets_dir]:
+        for directory in [self.raw_images_dir, self.metadata_dir, self.datasets_dir, self.preprocessed_dir, self.models_dir]:
             for file_path in directory.rglob("*"):
                 if file_path.is_file():
                     total_size += file_path.stat().st_size
@@ -382,4 +398,284 @@ class CacheManager:
             return True
         except Exception as e:
             print(f"Failed to clear cache: {e}")
+            return False
+    
+    # Phase 2: Preprocessed data caching methods
+    def cache_preprocessed_data(self, card_id: int, model_id: int, preprocessed_data: Dict[str, Any], 
+                               config_hash: str = None) -> bool:
+        """
+        Cache preprocessed data for a specific card and model.
+        
+        Args:
+            card_id: ID of the card
+            model_id: ID of the model
+            preprocessed_data: Preprocessed data dictionary
+            config_hash: Optional configuration hash for cache invalidation
+            
+        Returns:
+            True if data was cached successfully
+        """
+        try:
+            # Generate cache key
+            cache_key = f"card_{card_id}_model_{model_id}"
+            if config_hash:
+                cache_key += f"_config_{config_hash}"
+            
+            # Create cache file path
+            cache_file = self.preprocessed_dir / f"{cache_key}.json"
+            
+            # Prepare cache data
+            cache_data = {
+                'card_id': card_id,
+                'model_id': model_id,
+                'config_hash': config_hash,
+                'cached_at': time.time(),
+                'preprocessed_data': preprocessed_data
+            }
+            
+            # Save to cache
+            with open(cache_file, 'w') as f:
+                json.dump(cache_data, f, cls=NumpyJSONEncoder, indent=2)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Failed to cache preprocessed data for card {card_id}, model {model_id}: {e}")
+            return False
+    
+    def load_preprocessed_data(self, card_id: int, model_id: int, 
+                              config_hash: str = None) -> Optional[Dict[str, Any]]:
+        """
+        Load cached preprocessed data for a specific card and model.
+        
+        Args:
+            card_id: ID of the card
+            model_id: ID of the model
+            config_hash: Optional configuration hash for cache validation
+            
+        Returns:
+            Cached preprocessed data or None if not found
+        """
+        try:
+            # Generate cache key
+            cache_key = f"card_{card_id}_model_{model_id}"
+            if config_hash:
+                cache_key += f"_config_{config_hash}"
+            
+            # Check cache file
+            cache_file = self.preprocessed_dir / f"{cache_key}.json"
+            if not cache_file.exists():
+                return None
+            
+            # Load cached data
+            with open(cache_file, 'r') as f:
+                cache_data = json.load(f)
+            
+            # Validate cache data
+            if cache_data.get('card_id') != card_id or cache_data.get('model_id') != model_id:
+                return None
+            
+            # Check config hash if provided
+            if config_hash and cache_data.get('config_hash') != config_hash:
+                return None
+            
+            return cache_data.get('preprocessed_data')
+            
+        except Exception as e:
+            print(f"Failed to load preprocessed data for card {card_id}, model {model_id}: {e}")
+            return None
+    
+    def is_preprocessed_data_cached(self, card_id: int, model_id: int, 
+                                   config_hash: str = None) -> bool:
+        """
+        Check if preprocessed data is cached for a specific card and model.
+        
+        Args:
+            card_id: ID of the card
+            model_id: ID of the model
+            config_hash: Optional configuration hash for cache validation
+            
+        Returns:
+            True if preprocessed data is cached
+        """
+        return self.load_preprocessed_data(card_id, model_id, config_hash) is not None
+    
+    def clear_preprocessed_cache(self, model_id: int = None) -> bool:
+        """
+        Clear cached preprocessed data, optionally for a specific model.
+        
+        Args:
+            model_id: Optional model ID to clear cache for specific model only
+            
+        Returns:
+            True if cache was cleared successfully
+        """
+        try:
+            if model_id is None:
+                # Clear all preprocessed data
+                for file_path in self.preprocessed_dir.glob("*.json"):
+                    file_path.unlink()
+                print("✅ All preprocessed cache cleared")
+            else:
+                # Clear for specific model
+                pattern = f"*_model_{model_id}_*.json"
+                cleared_count = 0
+                for file_path in self.preprocessed_dir.glob(pattern):
+                    file_path.unlink()
+                    cleared_count += 1
+                print(f"✅ Cleared {cleared_count} preprocessed cache entries for model {model_id}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"Failed to clear preprocessed cache: {e}")
+            return False
+    
+    # Phase 3: Model caching methods
+    def cache_model(self, model_id: int, model_data: bytes, model_info: Dict[str, Any]) -> bool:
+        """
+        Cache a model file and its metadata.
+        
+        Args:
+            model_id: ID of the model
+            model_data: Raw model file data
+            model_info: Model information dictionary
+            
+        Returns:
+            True if model was cached successfully
+        """
+        try:
+            # Create models directory if it doesn't exist
+            models_dir = self.cache_dir / "models"
+            models_dir.mkdir(exist_ok=True)
+            
+            # Generate filename based on model info
+            model_name = model_info.get('name', f'model_{model_id}')
+            file_extension = model_info.get('file_extension', '.bin')
+            model_filename = f"{model_name}{file_extension}"
+            
+            # Save model file
+            model_path = models_dir / model_filename
+            with open(model_path, 'wb') as f:
+                f.write(model_data)
+            
+            # Save model metadata
+            metadata = {
+                'model_id': model_id,
+                'model_info': model_info,
+                'cached_at': time.time(),
+                'file_path': str(model_path),
+                'file_size': len(model_data)
+            }
+            
+            metadata_path = models_dir / f"{model_name}_metadata.json"
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, cls=NumpyJSONEncoder, indent=2)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Failed to cache model {model_id}: {e}")
+            return False
+    
+    def load_cached_model(self, model_id: int) -> Optional[Tuple[bytes, Dict[str, Any]]]:
+        """
+        Load cached model file and metadata.
+        
+        Args:
+            model_id: ID of the model
+            
+        Returns:
+            Tuple of (model_data, model_info) or None if not cached
+        """
+        try:
+            models_dir = self.cache_dir / "models"
+            if not models_dir.exists():
+                return None
+            
+            # Find model metadata file
+            for metadata_file in models_dir.glob("*_metadata.json"):
+                try:
+                    with open(metadata_file, 'r') as f:
+                        metadata = json.load(f)
+                    
+                    if metadata.get('model_id') == model_id:
+                        # Load model file
+                        model_path = Path(metadata['file_path'])
+                        if model_path.exists():
+                            with open(model_path, 'rb') as f:
+                                model_data = f.read()
+                            
+                            return model_data, metadata['model_info']
+                        
+                except Exception as e:
+                    print(f"Error reading model metadata {metadata_file}: {e}")
+                    continue
+            
+            return None
+            
+        except Exception as e:
+            print(f"Failed to load cached model {model_id}: {e}")
+            return None
+    
+    def is_model_cached(self, model_id: int) -> bool:
+        """
+        Check if a model is cached.
+        
+        Args:
+            model_id: ID of the model
+            
+        Returns:
+            True if model is cached
+        """
+        return self.load_cached_model(model_id) is not None
+    
+    def clear_model_cache(self, model_id: int = None) -> bool:
+        """
+        Clear cached models, optionally for a specific model.
+        
+        Args:
+            model_id: Optional model ID to clear cache for specific model only
+            
+        Returns:
+            True if cache was cleared successfully
+        """
+        try:
+            models_dir = self.cache_dir / "models"
+            if not models_dir.exists():
+                return True
+            
+            if model_id is None:
+                # Clear all models
+                import shutil
+                shutil.rmtree(models_dir)
+                models_dir.mkdir(exist_ok=True)
+                print("✅ All model cache cleared")
+            else:
+                # Clear specific model
+                cleared_count = 0
+                for metadata_file in models_dir.glob("*_metadata.json"):
+                    try:
+                        with open(metadata_file, 'r') as f:
+                            metadata = json.load(f)
+                        
+                        if metadata.get('model_id') == model_id:
+                            # Remove model file
+                            model_path = Path(metadata['file_path'])
+                            if model_path.exists():
+                                model_path.unlink()
+                                cleared_count += 1
+                            
+                            # Remove metadata file
+                            metadata_file.unlink()
+                            
+                    except Exception as e:
+                        print(f"Error clearing model metadata {metadata_file}: {e}")
+                
+                print(f"✅ Cleared {cleared_count} model cache entries for model {model_id}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"Failed to clear model cache: {e}")
             return False
