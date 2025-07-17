@@ -20,6 +20,8 @@ except ImportError as e:
     _PADANALYTICS_AVAILABLE = False
     import warnings
     warnings.warn(f"padanalytics not available for caching: {e}")
+    # Use fallback functions
+    from .cache_utils import get_card_direct as get_card
 
 try:
     from .dataset_manager import DatasetManager
@@ -128,9 +130,6 @@ class CachedDataset:
             """Cache a single image with error handling."""
             card_id, image_info = row_data
             try:
-                if not _PADANALYTICS_AVAILABLE:
-                    return "failed", "padanalytics module not available"
-                    
                 # Get full card information for metadata
                 card_df = get_card(card_id=card_id)
                 if card_df is None or card_df.empty:
@@ -144,11 +143,12 @@ class CachedDataset:
                     return "already_cached", card_id
                 
                 # Cache the image with metadata
+                # Convert numpy types to Python native types
                 card_metadata = {
-                    "card_id": card_id,
-                    "sample_name": card_df.sample_name.values[0],
-                    "sample_id": card_df.sample_id.values[0],
-                    "quantity": card_df.quantity.values[0] if 'quantity' in card_df.columns else None,
+                    "card_id": int(card_id),
+                    "sample_name": str(card_df.sample_name.values[0]),
+                    "sample_id": int(card_df.sample_id.values[0]),
+                    "quantity": float(card_df.quantity.values[0]) if 'quantity' in card_df.columns and pd.notna(card_df.quantity.values[0]) else None,
                     "dataset": self.dataset_name
                 }
                 
@@ -219,9 +219,6 @@ class CachedDataset:
             return None
         
         # Get the image URL (would need card details)
-        if not _PADANALYTICS_AVAILABLE:
-            return None
-            
         try:
             card_df = get_card(card_id=card_id)
             if card_df is None or card_df.empty:

@@ -16,6 +16,21 @@ from urllib.parse import urlparse
 import requests
 from PIL import Image
 import pandas as pd
+import numpy as np
+
+
+class NumpyJSONEncoder(json.JSONEncoder):
+    """JSON encoder that handles numpy types."""
+    def default(self, obj):
+        if isinstance(obj, (np.integer, np.int64)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif pd.isna(obj):
+            return None
+        return super().default(obj)
 
 
 class CacheManager:
@@ -63,7 +78,7 @@ class CacheManager:
                 "max_size_gb": self.max_cache_size / (1024**3)
             }
             with open(cache_info_file, 'w') as f:
-                json.dump(cache_info, f, indent=2)
+                json.dump(cache_info, f, indent=2, cls=NumpyJSONEncoder)
     
     def get_image_cache_key(self, image_url: str) -> str:
         """
@@ -141,7 +156,7 @@ class CacheManager:
             }
             
             with open(metadata_path, 'w') as f:
-                json.dump(metadata, f, indent=2)
+                json.dump(metadata, f, indent=2, cls=NumpyJSONEncoder)
             
             print(f"✅ Image cached successfully: {cache_key}")
             return str(image_path)
@@ -337,7 +352,7 @@ class CacheManager:
                 cache_info["last_cleanup"] = time.time()
                 
                 with open(cache_info_file, 'w') as f:
-                    json.dump(cache_info, f, indent=2)
+                    json.dump(cache_info, f, indent=2, cls=NumpyJSONEncoder)
             except:
                 pass
         
