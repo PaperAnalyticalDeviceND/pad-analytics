@@ -164,3 +164,7 @@ with pad.SDK() as sdk:
 
 ### GitHub Actions
 - **Always check the GitHub actions every time you push to the remote**
+
+## Git Commit Guidelines
+
+- Do not include "Co-Authored-By: Claude <noreply@anthropic.com>" in commits

@@ -3,7 +3,7 @@
 A complete workflow for machine learning models using data from the PAD API v2.
 """
 
-__version__ = "0.2.1"
+__version__ = "0.2.3"
 
 # Import all main functions from padanalytics module to package level
 try:
@@ -94,6 +94,128 @@ if _PADANALYTICS_IMPORTED:
         "download_file",
         "standardize_names",
     ])
+
+# Data Caching System (NEW in v0.2.3)
+try:
+    from .cache_manager import CacheManager
+    from .cached_dataset import CachedDataset
+    from .cached_predictions import (
+        predict_with_cache,
+        get_cache_status
+    )
+    from .cached_functions import (
+        get_dataset_cards_cached,
+        apply_predictions_to_dataframe_cached,
+        cache_dataset_images,
+        # Direct replacements with caching
+        get_dataset_cards as get_dataset_cards_with_cache,
+        apply_predictions_to_dataframe as apply_predictions_to_dataframe_with_cache
+    )
+    
+    __all__.extend([
+        "CacheManager",
+        "CachedDataset", 
+        "predict_with_cache",
+        "get_cache_status",
+        "get_dataset_cards_cached",
+        "apply_predictions_to_dataframe_cached",
+        "cache_dataset_images",
+        "get_dataset_cards_with_cache",
+        "apply_predictions_to_dataframe_with_cache"
+    ])
+    _CACHING_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import caching system: {e}")
+    _CACHING_IMPORTED = False
+
+# Preprocessing Pipeline System (NEW in v0.2.3 - Phase 2)
+try:
+    from .preprocessing_pipeline import PreprocessingPipeline, create_neural_network_pipeline, create_pls_pipeline
+    from .preprocessors import BasePreprocessor, NeuralNetworkPreprocessor, PLSPreprocessor
+    
+    __all__.extend([
+        "PreprocessingPipeline",
+        "create_neural_network_pipeline",
+        "create_pls_pipeline",
+        "BasePreprocessor",
+        "NeuralNetworkPreprocessor",
+        "PLSPreprocessor"
+    ])
+    _PREPROCESSING_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import preprocessing pipeline: {e}")
+    _PREPROCESSING_IMPORTED = False
+
+# Model Adapter System (NEW in v0.2.3 - Phase 3)
+try:
+    from .model_adapter import ModelAdapter, create_neural_network_adapter, create_pls_adapter, get_available_models
+    from .adapters import BaseAdapter, NeuralNetworkAdapter, PLSAdapter
+    
+    __all__.extend([
+        "ModelAdapter",
+        "create_neural_network_adapter",
+        "create_pls_adapter",
+        "get_available_models",
+        "BaseAdapter",
+        "NeuralNetworkAdapter",
+        "PLSAdapter"
+    ])
+    _MODEL_ADAPTER_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import model adapter: {e}")
+    _MODEL_ADAPTER_IMPORTED = False
+
+# Performance Monitoring System (NEW in v0.2.3 - Phase 4)
+try:
+    from .performance_monitor import (
+        PerformanceMonitor, PerformanceMetrics, performance_monitor,
+        get_global_monitor, set_global_monitoring, get_system_info
+    )
+    
+    __all__.extend([
+        "PerformanceMonitor",
+        "PerformanceMetrics",
+        "performance_monitor",
+        "get_global_monitor",
+        "set_global_monitoring",
+        "get_system_info"
+    ])
+    _PERFORMANCE_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import performance monitoring: {e}")
+    _PERFORMANCE_IMPORTED = False
+
+# Configuration Management System (NEW in v0.2.3 - Phase 4)
+try:
+    from .config_manager import (
+        ConfigManager, PADAnalyticsConfig, PreprocessingConfig, ModelConfig,
+        CacheConfig, PerformanceConfig, APIConfig, ValidationConfig,
+        get_global_config_manager, get_config, update_global_config, reset_global_config
+    )
+    
+    __all__.extend([
+        "ConfigManager",
+        "PADAnalyticsConfig",
+        "PreprocessingConfig",
+        "ModelConfig", 
+        "CacheConfig",
+        "PerformanceConfig",
+        "APIConfig",
+        "ValidationConfig",
+        "get_global_config_manager",
+        "get_config",
+        "update_global_config",
+        "reset_global_config"
+    ])
+    _CONFIG_IMPORTED = True
+except ImportError as e:
+    import warnings
+    warnings.warn(f"Could not import configuration management: {e}")
+    _CONFIG_IMPORTED = False
 
 # Add available submodules
 for module_name in ["pad_analysis", "pad_helper", "fileManagement", "intensityFind", "pixelProcessing", "regionRoutine"]:
