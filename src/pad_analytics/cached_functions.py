@@ -12,8 +12,6 @@ from pathlib import Path
 
 from .cache_manager import CacheManager
 from .cached_dataset import CachedDataset
-from .model_adapter import ModelAdapter
-from .preprocessing_pipeline import PreprocessingPipeline
 
 
 def get_dataset_cards_cached(dataset_name: str, 
@@ -45,7 +43,7 @@ def get_dataset_cards_cached(dataset_name: str,
         cache_manager = CacheManager()
     
     # Use CachedDataset for automatic caching
-    cached_dataset = CachedDataset(dataset_name, cache_manager=cache_manager)
+    cached_dataset = CachedDataset(dataset_name, cache_dir=cache_manager.cache_dir)
     
     # Load dataset metadata (uses cache if available)
     metadata = cached_dataset.load_dataset_metadata()
@@ -104,32 +102,40 @@ def apply_predictions_to_dataframe_cached(dataset_df: pd.DataFrame,
     if cache_manager is None:
         cache_manager = CacheManager()
     
-    # Create model adapter with caching
-    adapter = ModelAdapter(model_id=model_id, cache_manager=cache_manager)
-    
     if verbose:
         print(f"📊 Processing {len(dataset_df)} cards with model {model_id}")
-        print(f"🔧 Model type: {adapter.get_model_type()}")
         print(f"💾 Cache enabled: {cache_manager is not None}")
         
         # Check cache coverage
         _check_cache_coverage(dataset_df, cache_manager, sample_size=min(50, len(dataset_df)))
     
-    # Convert dataset to list of card dictionaries
-    cards_data = dataset_df.to_dict('records')
-    
-    # Use the advanced batch processing with caching
+    # Use original predict function for reliable predictions (avoids TF Lite issues)
     if verbose:
-        print(f"🚀 Starting batch predictions (batch_size={batch_size}, parallel={parallel})")
+        print(f"🚀 Starting predictions for {len(dataset_df)} cards using original predict function")
     
-    # Make predictions using cached infrastructure
-    predictions = adapter.predict_batch(cards_data, parallel=parallel)
+    # Make predictions using original working predict function
+    from . import padanalytics as pad
+    predictions = []
+    
+    for idx, row in dataset_df.iterrows():
+        try:
+            card_id = int(row['id'])
+            actual, prediction = pad.predict(card_id=card_id, model_id=model_id)
+            predictions.append(prediction)
+        except Exception as e:
+            print(f"Prediction failed for card {card_id}: {e}")
+            predictions.append(("unknown", 0.0, 0.0))
     
     # Add predictions to dataframe
     results_df = dataset_df.copy()
     
-    if adapter.get_model_type() == 'neural_network':
-        # Neural network returns (drug, confidence, energy)
+    # Process predictions based on what original predict function returned
+    # Original predict returns (actual, prediction)
+    # For NN models: prediction is (drug, confidence, energy)
+    # For PLS models: prediction is a float concentration
+    
+    if len(predictions) > 0 and isinstance(predictions[0], tuple) and len(predictions[0]) == 3:
+        # Neural network model: (drug, confidence, energy)
         results_df['predicted_drug'] = [pred[0] for pred in predictions]
         results_df['confidence'] = [pred[1] for pred in predictions]
         results_df['energy'] = [pred[2] for pred in predictions]
@@ -138,7 +144,7 @@ def apply_predictions_to_dataframe_cached(dataset_df: pd.DataFrame,
         if 'sample_name' in results_df.columns:
             results_df['actual_drug'] = results_df['sample_name']
     else:
-        # PLS returns concentration
+        # PLS model: float concentration
         results_df['predicted_concentration'] = predictions
         
         # Add actual concentration for comparison
@@ -230,13 +236,12 @@ def cache_dataset_images(dataset_name: str,
     if cache_manager is None:
         cache_manager = CacheManager()
     
-    # Use CachedDataset to handle the caching
-    cached_dataset = CachedDataset(dataset_name, cache_manager=cache_manager)
+    # Use CachedDataset to handle the caching  
+    cached_dataset = CachedDataset(dataset_name, cache_dir=cache_manager.cache_dir)
     
     # Download and cache images
     stats = cached_dataset.download_and_cache_images(
-        max_images=max_images,
-        verbose=verbose
+        max_images=max_images
     )
     
     return stats
